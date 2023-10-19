@@ -1,7 +1,6 @@
 import 'package:chekaz/Logics/Checkers/checkersPiece.dart';
 import 'package:flutter/material.dart';
 import '../../Logics/Chess/chess.dart';
-import '../../Logics/Chess/chesspiece.dart';
 import '../../Utility/colors.dart';
 import 'components/CheckersSquare.dart';
 
@@ -27,7 +26,7 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
 
   bool checkStatus = false;
 
-  void pieceSelected(int row, int col) {
+  void pieceSelected(int row, int col, bool hasMandatoryCapture) {
     setState(() {
       //No piece has been selected yet this is the first selection
       if (selecetedPiece == null && board[row][col] != null) {
@@ -52,9 +51,13 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
         //promote to king if its in the last row
         int lastRow = selecetedPiece!.isWhite ? 0 : 7;
         if (row == lastRow) {
-          movePiece(row, col, true);
+          if (!hasMandatoryCapture) {
+            movePiece(row, col, true);
+          }
         } else {
-          movePiece(row, col, false);
+          if (!hasMandatoryCapture) {
+            movePiece(row, col, false);
+          }
         }
       }
 
@@ -153,13 +156,16 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
       List<List<int>> additionalMoves =
           calculatevalidCaptureMoves(newRow, newCol, selecetedPiece);
 
+      //promote to king if Possible
+      makeKing(isKing);
+
       if (additionalMoves.isNotEmpty) {
         // The current player has more moves, allow them to continue
         selecetedRow = newRow;
         selecetedCol = newCol;
         validMoves = additionalMoves;
       } else {
-        changeTurn(isKing);
+        changeTurn();
       }
       // check for kings long diagonal jump
     } else if (rowDiff.abs() > 2 && colDiff.abs() > 2) {
@@ -183,8 +189,11 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
           }
         }
       }
+      //promote to king if Possible
+      makeKing(isKing);
       board[newRow][newCol] = selecetedPiece;
       board[selecetedRow][selecetedCol] = null;
+
       // Check if there are additional moves for the current player
       List<List<int>> additionalMoves =
           calculatevalidCaptureMoves(newRow, newCol, selecetedPiece);
@@ -195,21 +204,31 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
         selecetedCol = newCol;
         validMoves = additionalMoves;
       } else {
-        changeTurn(isKing);
+        changeTurn();
       }
     } else {
+      //promote to king if Possible
+      makeKing(isKing);
+
       // Update the piece's row and column
       board[newRow][newCol] = selecetedPiece;
       board[selecetedRow][selecetedCol] = null;
 
-      changeTurn(isKing);
+      changeTurn();
     }
   }
 
 //promote to king
 
 // change turns
-  void changeTurn(bool isKing) {
+  void makeKing(bool isKing) {
+    if (isKing) {
+      selecetedPiece!.type = CheckersPieceType.king;
+    }
+  }
+
+// change turns
+  void changeTurn() {
     selecetedPiece = null;
     selecetedRow = -1;
     selecetedCol = -1;
@@ -325,14 +344,35 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
     board = newBoard;
   }
 
+  bool hasMandatoryCaptureForPiece(
+      int row, int col, List<List<CheckersPiece?>> board, bool isWhiteTurn) {
+    CheckersPiece? piece = board[row][col];
+    if (piece != null && piece.isWhite == isWhiteTurn) {
+      List<List<int>> captureMoves =
+          calculatevalidCaptureMoves(row, col, piece);
+      return captureMoves.isNotEmpty;
+    }
+    return false;
+  }
+
+//
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: foregroundColor,
       body: Column(
         children: [
           Expanded(
-            flex: 3,
+              child: GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: whitePiecesCaptured.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 8),
+                  itemBuilder: (context, index) =>
+                      Text(blackPiecesCaptured.length.toString()))),
+          Text(checkStatus ? 'CHECK' : ""),
+          Expanded(
+            flex: 5,
             child: GridView.builder(
                 itemCount: 8 * 8,
                 physics: const NeverScrollableScrollPhysics(),
@@ -352,15 +392,27 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
                       validMove = true;
                     }
                   }
+
+                  bool hasMandatoryCapture =
+                      hasMandatoryCaptureForPiece(row, col, board, isWhiteTurn);
                   return CheckerSquare(
                     isSelected: isSelected,
                     isValidMove: validMove,
                     isWhite: isWhite(index),
                     piece: board[row][col],
-                    onTap: () => pieceSelected(row, col),
+                    onTap: () => pieceSelected(row, col, hasMandatoryCapture),
+                    hasMandatoryCapture: hasMandatoryCapture,
                   );
                 }),
           ),
+          Expanded(
+              child: GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: whitePiecesCaptured.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 8),
+                  itemBuilder: (context, index) =>
+                      Text(blackPiecesCaptured.length.toString()))),
         ],
       ),
     );

@@ -9,12 +9,14 @@ class CheckerSquare extends StatelessWidget {
   final bool isSelected;
   final bool isValidMove;
   final void Function()? onTap;
+  final bool hasMandatoryCapture;
   const CheckerSquare(
       {super.key,
       required this.isValidMove,
       required this.isWhite,
       required this.onTap,
       required this.piece,
+      required this.hasMandatoryCapture,
       required this.isSelected});
 
   @override
@@ -25,6 +27,8 @@ class CheckerSquare extends StatelessWidget {
       squareColor = const Color.fromARGB(255, 74, 179, 78);
     } else if (isValidMove) {
       squareColor = const Color.fromARGB(255, 23, 221, 33);
+    } else if (hasMandatoryCapture && !isSelected) {
+      squareColor = const Color.fromARGB(255, 194, 13, 226);
     } else {
       squareColor = isWhite ? foregroundColor : backgroundColor;
     }
@@ -56,9 +60,9 @@ class CheckerSquare extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: const [
                 BoxShadow(
-                    color: Colors.black45, offset: Offset(0, 4), blurRadius: 4)
+                    color: Colors.black54, offset: Offset(0, 4), blurRadius: 4)
               ],
-              color: !piece!.isWhite ? Colors.black54 : Colors.grey[100]),
+              color: !piece!.isWhite ? Colors.orange : Colors.grey[100]),
           child: Icon(Icons.star,
               color: !piece!.isWhite
                   ? Colors.grey[100]!.withOpacity(0.5)
