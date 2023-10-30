@@ -1,3 +1,4 @@
+import 'package:chekaz/Providers/Websocket/WebsocketProvider.dart';
 import 'package:chekaz/Screens/Home/Home.dart';
 import 'package:chekaz/Screens/Profile/Profile.dart';
 import 'package:chekaz/Screens/Referal/Referal.dart';
@@ -6,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'Providers/CheckersLogic/CheckersLogicProvider.dart';
 import 'Providers/NavProvider/BottomNavBar.dart';
-import 'Screens/Checkers/CheckersGameBoard.dart';
 import 'Screens/Tournament/Tournament.dart';
 
 void main() {
@@ -19,6 +19,9 @@ void main() {
         ),
         ChangeNotifierProvider(
           create: (context) => CheckersGameProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => WebSocketProvider(),
         )
       ],
       child: const MyApp(),

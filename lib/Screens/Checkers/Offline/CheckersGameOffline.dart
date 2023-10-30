@@ -3,10 +3,10 @@ import 'package:chekaz/Logics/Checkers/checkersPiece.dart';
 import 'package:chekaz/Models/Source.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../Logics/Chess/chess.dart';
-import '../../Providers/Websocket/WebsocketProvider.dart';
-import '../../Utility/colors.dart';
-import 'components/CheckersSquare.dart';
+
+import '../../../Logics/Chess/chess.dart';
+import '../../../Utility/colors.dart';
+import '../components/CheckersSquare.dart';
 
 class CheckersBoardGame extends StatefulWidget {
   const CheckersBoardGame({super.key});
@@ -20,15 +20,17 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
 
   List<CheckersPiece?> blackPiecesCaptured = [];
 
-  List<List<CheckersPiece?>> board = [];
+  late List<List<CheckersPiece?>> board = [];
+
+  ///turns
+  bool isWhiteTurn = true;
 
   // valid moves for selected piece
   List<List<int>> validMoves = [];
 
   bool checkStatus = false;
 
-  void pieceSelected(
-      int row, int col, bool hasMandatoryCapture, bool isWhiteTurn) {
+  void pieceSelected(int row, int col, bool hasMandatoryCapture) {
     setState(() {
       //No piece has been selected yet this is the first selection
       if (selecetedPiece == null && board[row][col] != null) {
@@ -150,13 +152,6 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
       int capturedRow = (newRow + selecetedRow) ~/ 2;
       int capturedCol = (newCol + selecetedCol) ~/ 2;
 
-      var source = Source(row: selecetedRow, col: selecetedCol);
-
-      var destination = Destination(row: newRow, col: newCol);
-
-      Provider.of<WebSocketProvider>(context, listen: false)
-          .sendMove(source, destination);
-
       board[selecetedRow][selecetedCol] = null;
       board[newRow][newCol] = selecetedPiece;
       board[capturedRow][capturedCol] = null;
@@ -230,13 +225,6 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
       board[newRow][newCol] = selecetedPiece;
       board[selecetedRow][selecetedCol] = null;
 
-      var source = Source(row: selecetedRow, col: selecetedCol);
-
-      var destination = Destination(row: newRow, col: newCol);
-
-      Provider.of<WebSocketProvider>(context, listen: false)
-          .sendMove(source, destination);
-
       changeTurn();
     }
   }
@@ -257,7 +245,7 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
     selecetedCol = -1;
     validMoves = [];
 
-    Provider.of<WebSocketProvider>(context, listen: false).changeTurn();
+    isWhiteTurn = !isWhiteTurn;
   }
 
 //calculate valid capture moves for boh normal and king piece
@@ -322,33 +310,19 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
 
   void replay() {
     Navigator.of(context).pop();
-    // _initializeBoard();
+    _initializeBoard();
     checkStatus = false;
     whitePiecesCaptured.clear();
     blackPiecesCaptured.clear();
 
+    isWhiteTurn = true;
     setState(() {});
   }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {});
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-
-    // Use a Future-based approach to wait for the board initialization
-    Future.delayed(Duration.zero, () {
-      var newBoard =
-          Provider.of<WebSocketProvider>(context, listen: false).board;
-
-      setState(() {
-        board = newBoard;
-      });
-    });
+    _initializeBoard();
   }
 
   @override
@@ -362,6 +336,30 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
 
   //
   int selecetedCol = -1;
+
+  void _initializeBoard() {
+    List<List<CheckersPiece?>> newBoard = List.generate(
+      8,
+      (row) => List.generate(
+        8,
+        (col) {
+          if ((row + col) % 2 == 1) {
+            if (row < 3) {
+              return CheckersPiece(
+                  isWhite: false, type: CheckersPieceType.normal);
+            } else if (row > 4) {
+              return CheckersPiece(
+                  isWhite: true, type: CheckersPieceType.normal);
+            }
+          }
+          return null;
+        },
+      ),
+    );
+
+    // Assign the new board to the class variable
+    board = newBoard;
+  }
 
   bool hasMandatoryCaptureForPiece(
       int row, int col, List<List<CheckersPiece?>> board, bool isWhiteTurn) {
@@ -378,140 +376,50 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
 
   @override
   Widget build(BuildContext context) {
-    var isWhiteTurn = Provider.of<WebSocketProvider>(context).isWhiteTurn;
-    var isPlayer1 = Provider.of<WebSocketProvider>(context).isPlayer1;
-    // Send a message to the WebSocket server
-
-    var webSocketProvider = Provider.of<WebSocketProvider>(context);
-
-    print("board length $board");
-
-    handlemessage(dynamic data) {
-      var message = jsonDecode(data);
-
-      switch (message['operation']) {
-        case REQUEST_START:
-          break;
-        case CHANGE_TURN:
-          break;
-        case PLAYER_MOVE:
-          break;
-        default:
-      }
-    }
+    const gameStarted = false;
 
     return Scaffold(
         backgroundColor: foregroundColor,
         body: Column(
           children: [
-            const SizedBox(
-              height: 50,
-            ),
-            StreamBuilder<dynamic>(
-              stream: webSocketProvider.messageStream,
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  final message = jsonDecode(snapshot.data);
-
-                  //handlemessage(message);
-                  return Text('Received message: ${message['operation']}');
-                } else {
-                  return const Text('No message received yet');
-                }
-              },
-            ),
-            Text(
-              'WebSocket Status: ${webSocketProvider.isConnected ? 'Connected' : 'Disconnected'}',
-            ),
-            webSocketProvider.loading
-                ? const CircularProgressIndicator(
-                    strokeWidth: 1,
-                  )
-                : const SizedBox(
-                    height: 10,
-                  ),
-            ElevatedButton(
-              onPressed: () {
-                if (webSocketProvider.isConnected) {
-                  // WebSocket is already connected, handle the action accordingly
-                } else {
-                  webSocketProvider.connect();
-                }
-              },
-              child: const Text('Connect to WebSocket'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (webSocketProvider.isConnected) {
-                  webSocketProvider.close();
-                  setState(() {});
-                } else {
-                  // WebSocket is already disconnected, handle the action accordingly
-                }
-              },
-              child: const Text('Disconnect WebSocket'),
-            ),
-            webSocketProvider.isConnected
-                ? Expanded(
-                    child: GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: whitePiecesCaptured.length,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 8),
-                        itemBuilder: (context, index) =>
-                            Text(blackPiecesCaptured.length.toString())))
-                : const SizedBox(),
             Text(checkStatus ? 'CHECK' : ""),
-            webSocketProvider.isConnected
-                ? SizedBox(
-                    width: double.infinity,
-                    height: 400,
-                    child: Transform.rotate(
-                      angle: isPlayer1 ? 0 : 3.14159,
-                      child: Expanded(
-                        flex: 5,
-                        child: GridView.builder(
-                            itemCount: 8 * 8,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 8),
-                            itemBuilder: (ctx, index) {
-                              int row = index ~/ 8;
-                              int col = index % 8;
-                              // check if square is selected
-                              bool isSelected =
-                                  selecetedRow == row && selecetedCol == col;
+            Expanded(
+              flex: 5,
+              child: GridView.builder(
+                  itemCount: 8 * 8,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 8),
+                  itemBuilder: (ctx, index) {
+                    int row = index ~/ 8;
+                    int col = index % 8;
+                    // check if square is selected
+                    bool isSelected =
+                        selecetedRow == row && selecetedCol == col;
 
-                              // check valid move
-                              bool validMove = false;
+                    // check valid move
+                    bool validMove = false;
 
-                              for (var position in validMoves) {
-                                if (position[0] == row && position[1] == col) {
-                                  validMove = true;
-                                }
-                              }
+                    for (var position in validMoves) {
+                      if (position[0] == row && position[1] == col) {
+                        validMove = true;
+                      }
+                    }
 
-                              bool hasMandatoryCapture =
-                                  hasMandatoryCaptureForPiece(
-                                      row, col, board, isWhiteTurn);
-                              return CheckerSquare(
-                                isSelected: isSelected,
-                                isValidMove: validMove,
-                                isWhite: isWhite(index),
-                                piece: board[row][col],
-                                onTap: () {
-                                  pieceSelected(row, col, hasMandatoryCapture,
-                                      isWhiteTurn);
-                                },
-                                hasMandatoryCapture: hasMandatoryCapture,
-                              );
-                            }),
-                      ),
-                    ),
-                  )
-                : const SizedBox(),
+                    bool hasMandatoryCapture = hasMandatoryCaptureForPiece(
+                        row, col, board, isWhiteTurn);
+                    return CheckerSquare(
+                      isSelected: isSelected,
+                      isValidMove: validMove,
+                      isWhite: isWhite(index),
+                      piece: board[row][col],
+                      onTap: () {
+                        pieceSelected(row, col, hasMandatoryCapture);
+                      },
+                      hasMandatoryCapture: hasMandatoryCapture,
+                    );
+                  }),
+            ),
             Expanded(
                 child: GridView.builder(
                     physics: const NeverScrollableScrollPhysics(),
@@ -524,13 +432,4 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
           ],
         )); // Your game UI widget goes here.
   }
-
-  static const REQUEST_START = "START";
-  static const PLAYER_MOVE = "MOVE"; //  player moves
-  static const PLAYER_CAPTURE = "CAPTURE"; // New opcode for capturing pieces
-  static const GAME_OVER_OP = "GAMEOVER"; // game over
-  static const PLAYER_ONE_TURN = "0";
-  static const PLAYER_TWO_TURN = "1";
-  static const PLAYER_WAIT = "WAIT PLAYER2";
-  static const CHANGE_TURN = "TURN";
 }
