@@ -1,6 +1,8 @@
-import 'package:chekaz/Screens/Checkers/CheckersGameBoard.dart';
+import 'package:chekaz/Screens/Checkers/CheckersStake/CheckersStake.dart';
 import 'package:chekaz/Screens/Chess/ChessGameBoard.dart';
 import 'package:flutter/material.dart';
+
+import 'widgets/GameOptionsDialog.dart';
 
 class Home extends StatelessWidget {
   const Home({super.key});
@@ -18,25 +20,31 @@ class Home extends StatelessWidget {
           GameItem(
             title: 'Checkers',
             onTap: () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const CheckersBoardGame()));
+              _showGameOptions(context, 'Checkers');
             },
           ),
           GameItem(
             title: 'Chess',
             onTap: () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const ChessGameBoard()));
+              _showGameOptions(context, 'Chess');
             },
           ),
         ],
       ),
     );
   }
+}
+
+void _showGameOptions(BuildContext context, String gameTitle) {
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(7)),
+    ),
+    builder: (BuildContext builder) {
+      return GameOptionsDialog(gameTitle: gameTitle);
+    },
+  );
 }
 
 class GameItem extends StatelessWidget {

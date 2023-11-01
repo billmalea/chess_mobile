@@ -11,3 +11,11 @@ class Destination {
 
   Destination({required this.row, required this.col});
 }
+
+class Captured {
+  final bool isWhite;
+  final int row;
+  final int col;
+
+  Captured({required this.row, required this.col, required this.isWhite});
+}

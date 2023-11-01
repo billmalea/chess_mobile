@@ -8,14 +8,16 @@ import '../../../Logics/Chess/chess.dart';
 import '../../../Utility/colors.dart';
 import '../components/CheckersSquare.dart';
 
-class CheckersBoardGame extends StatefulWidget {
-  const CheckersBoardGame({super.key});
+class CheckersOfflineMultiplayer extends StatefulWidget {
+  const CheckersOfflineMultiplayer({super.key});
 
   @override
-  State<CheckersBoardGame> createState() => _CheckersBoardGameState();
+  State<CheckersOfflineMultiplayer> createState() =>
+      _CheckersOfflineMultiplayerState();
 }
 
-class _CheckersBoardGameState extends State<CheckersBoardGame> {
+class _CheckersOfflineMultiplayerState
+    extends State<CheckersOfflineMultiplayer> {
   List<CheckersPiece?> whitePiecesCaptured = [];
 
   List<CheckersPiece?> blackPiecesCaptured = [];
@@ -417,6 +419,7 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
                         pieceSelected(row, col, hasMandatoryCapture);
                       },
                       hasMandatoryCapture: hasMandatoryCapture,
+                      isLocalPlayer: false,
                     );
                   }),
             ),

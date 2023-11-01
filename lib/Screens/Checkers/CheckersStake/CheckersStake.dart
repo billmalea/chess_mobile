@@ -3,33 +3,33 @@ import 'package:chekaz/Logics/Checkers/checkersPiece.dart';
 import 'package:chekaz/Models/Source.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../Logics/Chess/chess.dart';
-import '../../Providers/Websocket/WebsocketProvider.dart';
-import '../../Utility/colors.dart';
-import 'components/CheckersSquare.dart';
+import '../../../Logics/Chess/chess.dart';
+import '../../../Providers/Websocket/WebsocketProvider.dart';
+import '../../../Utility/colors.dart';
+import '../components/CheckersSquare.dart';
 
-class CheckersBoardGame extends StatefulWidget {
-  const CheckersBoardGame({super.key});
+class CheckersStake extends StatefulWidget {
+  const CheckersStake({super.key});
 
   @override
-  State<CheckersBoardGame> createState() => _CheckersBoardGameState();
+  State<CheckersStake> createState() => _CheckersStakeState();
 }
 
-class _CheckersBoardGameState extends State<CheckersBoardGame> {
-  List<CheckersPiece?> whitePiecesCaptured = [];
-
-  List<CheckersPiece?> blackPiecesCaptured = [];
-
-  List<List<CheckersPiece?>> board = [];
+class _CheckersStakeState extends State<CheckersStake> {
+  late List<List<CheckersPiece?>> board = [];
 
   // valid moves for selected piece
   List<List<int>> validMoves = [];
 
   bool checkStatus = false;
 
-  void pieceSelected(
-      int row, int col, bool hasMandatoryCapture, bool isWhiteTurn) {
+  void pieceSelected(int row, int col, bool hasMandatoryCapture,
+      bool isWhiteTurn, bool isLocalPlayerTurn) {
     setState(() {
+      if (!isLocalPlayerTurn) {
+        return;
+      }
+
       //No piece has been selected yet this is the first selection
       if (selecetedPiece == null && board[row][col] != null) {
         if (board[row][col]!.isWhite == isWhiteTurn) {
@@ -54,11 +54,11 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
         int lastRow = selecetedPiece!.isWhite ? 0 : 7;
         if (row == lastRow) {
           if (!hasMandatoryCapture) {
-            movePiece(row, col, true);
+            movePiece(row, col, true, selecetedPiece!.isWhite);
           }
         } else {
           if (!hasMandatoryCapture) {
-            movePiece(row, col, false);
+            movePiece(row, col, false, selecetedPiece!.isWhite);
           }
         }
       }
@@ -137,7 +137,7 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
     return possibleMoves;
   }
 
-  void movePiece(int newRow, int newCol, bool isKing) {
+  void movePiece(int newRow, int newCol, bool isKing, bool isWhite) {
     //remove the piece jumped if any from the board
 
     // Calculate the row and column difference
@@ -154,8 +154,11 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
 
       var destination = Destination(row: newRow, col: newCol);
 
+      var captured =
+          Captured(row: capturedRow, col: capturedCol, isWhite: isWhite);
+
       Provider.of<WebSocketProvider>(context, listen: false)
-          .sendMove(source, destination);
+          .sendMove(source, destination, captured, isKing);
 
       board[selecetedRow][selecetedCol] = null;
       board[newRow][newCol] = selecetedPiece;
@@ -190,12 +193,21 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
         capturedRow -= (newRow - selecetedRow).sign;
         capturedCol -= (newCol - selecetedCol).sign;
 
-        // Check if there's an opponent's piece at the captured position
+        // Check if there's an opponent's piece at the capture position
         if (board[capturedRow][capturedCol] != null) {
           if (board[capturedRow][capturedCol]!.isWhite !=
               selecetedPiece!.isWhite) {
+            var captured =
+                Captured(row: capturedRow, col: capturedCol, isWhite: isWhite);
             // Remove the captured opponent's piece
             board[capturedRow][capturedCol] = null;
+
+            var source = Source(row: selecetedRow, col: selecetedCol);
+
+            var destination = Destination(row: newRow, col: newCol);
+
+            Provider.of<WebSocketProvider>(context, listen: false)
+                .sendMove(source, destination, captured, isKing);
           } else {
             // Stop capturing if you encounter your own piece
             break;
@@ -221,7 +233,9 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
       } else {
         changeTurn();
       }
-    } else {
+    }
+    // normal move
+    else {
       //promote to king if Possible
 
       makeKing(isKing);
@@ -235,7 +249,7 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
       var destination = Destination(row: newRow, col: newCol);
 
       Provider.of<WebSocketProvider>(context, listen: false)
-          .sendMove(source, destination);
+          .sendMove(source, destination, null, isKing);
 
       changeTurn();
     }
@@ -324,8 +338,8 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
     Navigator.of(context).pop();
     // _initializeBoard();
     checkStatus = false;
-    whitePiecesCaptured.clear();
-    blackPiecesCaptured.clear();
+    // whitePiecesCaptured.clear();
+    // blackPiecesCaptured.clear();
 
     setState(() {});
   }
@@ -333,7 +347,6 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {});
   }
 
   @override
@@ -380,49 +393,19 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
   Widget build(BuildContext context) {
     var isWhiteTurn = Provider.of<WebSocketProvider>(context).isWhiteTurn;
     var isPlayer1 = Provider.of<WebSocketProvider>(context).isPlayer1;
-    // Send a message to the WebSocket server
+
+    var blackPiecesCaptured =
+        Provider.of<WebSocketProvider>(context).blackPiecesCaptured;
+
+    var whitePiecesCaptured =
+        Provider.of<WebSocketProvider>(context).whitePiecesCaptured;
 
     var webSocketProvider = Provider.of<WebSocketProvider>(context);
-
-    print("board length $board");
-
-    handlemessage(dynamic data) {
-      var message = jsonDecode(data);
-
-      switch (message['operation']) {
-        case REQUEST_START:
-          break;
-        case CHANGE_TURN:
-          break;
-        case PLAYER_MOVE:
-          break;
-        default:
-      }
-    }
 
     return Scaffold(
         backgroundColor: foregroundColor,
         body: Column(
           children: [
-            const SizedBox(
-              height: 50,
-            ),
-            StreamBuilder<dynamic>(
-              stream: webSocketProvider.messageStream,
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  final message = jsonDecode(snapshot.data);
-
-                  //handlemessage(message);
-                  return Text('Received message: ${message['operation']}');
-                } else {
-                  return const Text('No message received yet');
-                }
-              },
-            ),
-            Text(
-              'WebSocket Status: ${webSocketProvider.isConnected ? 'Connected' : 'Disconnected'}',
-            ),
             webSocketProvider.loading
                 ? const CircularProgressIndicator(
                     strokeWidth: 1,
@@ -440,87 +423,178 @@ class _CheckersBoardGameState extends State<CheckersBoardGame> {
               },
               child: const Text('Connect to WebSocket'),
             ),
-            ElevatedButton(
-              onPressed: () {
-                if (webSocketProvider.isConnected) {
-                  webSocketProvider.close();
-                  setState(() {});
-                } else {
-                  // WebSocket is already disconnected, handle the action accordingly
-                }
-              },
-              child: const Text('Disconnect WebSocket'),
-            ),
             webSocketProvider.isConnected
-                ? Expanded(
-                    child: GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: whitePiecesCaptured.length,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 8),
-                        itemBuilder: (context, index) =>
-                            Text(blackPiecesCaptured.length.toString())))
-                : const SizedBox(),
-            Text(checkStatus ? 'CHECK' : ""),
+                ? Text(
+                    whitePiecesCaptured.length.toString(),
+                    style: const TextStyle(color: Colors.black),
+                  )
+                : const SizedBox(
+                    height: 0,
+                  ),
+            Container(
+              padding: const EdgeInsets.only(top: 10, bottom: 10),
+              color: Colors.black87,
+              child: Row(
+                children: [
+                  const CircleAvatar(
+                    backgroundImage: AssetImage("assets/images/avatar.png"),
+                    radius: 20,
+                  ),
+                  const SizedBox(
+                    width: 10,
+                  ),
+                  const Column(
+                    children: [
+                      Text(
+                        "Joe",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      SizedBox(height: 5),
+                      Icon(Icons.watch, color: Colors.white),
+                    ],
+                  ),
+                  const SizedBox(
+                    width: 30,
+                  ),
+                  Row(
+                    children: [
+                      const Text(
+                        "Current Turn",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      const SizedBox(
+                        width: 5,
+                      ),
+                      Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: const [
+                                BoxShadow(
+                                    color: Colors.black45,
+                                    offset: Offset(0, 4),
+                                    blurRadius: 4)
+                              ],
+                              color: !isWhiteTurn
+                                  ? Colors.orange
+                                  : Colors.grey[100]))
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(
+                    blackPiecesCaptured.length.toString(),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  const SizedBox(
+                    width: 10,
+                  ),
+                ],
+              ),
+            ),
             webSocketProvider.isConnected
                 ? SizedBox(
                     width: double.infinity,
                     height: 400,
                     child: Transform.rotate(
                       angle: isPlayer1 ? 0 : 3.14159,
-                      child: Expanded(
-                        flex: 5,
-                        child: GridView.builder(
-                            itemCount: 8 * 8,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 8),
-                            itemBuilder: (ctx, index) {
-                              int row = index ~/ 8;
-                              int col = index % 8;
-                              // check if square is selected
-                              bool isSelected =
-                                  selecetedRow == row && selecetedCol == col;
+                      child: GridView.builder(
+                          shrinkWrap: true,
+                          itemCount: 8 * 8,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 8),
+                          itemBuilder: (ctx, index) {
+                            int row = index ~/ 8;
+                            int col = index % 8;
+                            // check if square is selected
+                            bool isSelected =
+                                selecetedRow == row && selecetedCol == col;
 
-                              // check valid move
-                              bool validMove = false;
+                            // check valid move
+                            bool validMove = false;
 
-                              for (var position in validMoves) {
-                                if (position[0] == row && position[1] == col) {
-                                  validMove = true;
-                                }
+                            for (var position in validMoves) {
+                              if (position[0] == row && position[1] == col) {
+                                validMove = true;
+                              }
+                            }
+
+                            bool isLocallPlayer() {
+                              if (isPlayer1 && isWhiteTurn) {
+                                return true;
+                              } else if (!isPlayer1 && !isWhiteTurn) {
+                                return true;
                               }
 
-                              bool hasMandatoryCapture =
-                                  hasMandatoryCaptureForPiece(
-                                      row, col, board, isWhiteTurn);
-                              return CheckerSquare(
-                                isSelected: isSelected,
-                                isValidMove: validMove,
-                                isWhite: isWhite(index),
-                                piece: board[row][col],
-                                onTap: () {
-                                  pieceSelected(row, col, hasMandatoryCapture,
-                                      isWhiteTurn);
-                                },
-                                hasMandatoryCapture: hasMandatoryCapture,
-                              );
-                            }),
-                      ),
+                              return false;
+                            }
+
+                            bool hasMandatoryCapture =
+                                hasMandatoryCaptureForPiece(
+                                    row, col, board, isWhiteTurn);
+                            return CheckerSquare(
+                              isSelected: isSelected,
+                              isValidMove: validMove,
+                              isWhite: isWhite(index),
+                              piece: board[row][col],
+                              onTap: () {
+                                pieceSelected(row, col, hasMandatoryCapture,
+                                    isWhiteTurn, isLocallPlayer());
+                              },
+                              hasMandatoryCapture: hasMandatoryCapture,
+                              isLocalPlayer: isLocallPlayer(),
+                            );
+                          }),
                     ),
                   )
                 : const SizedBox(),
-            Expanded(
-                child: GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: whitePiecesCaptured.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 8),
-                    itemBuilder: (context, index) =>
-                        Text(blackPiecesCaptured.length.toString()))),
+            Container(
+              padding: const EdgeInsets.only(top: 10, bottom: 10),
+              color: Colors.black87,
+              child: Row(
+                children: [
+                  const CircleAvatar(
+                    backgroundImage: AssetImage("assets/images/avatar.png"),
+                    radius: 20,
+                  ),
+                  const SizedBox(
+                    width: 10,
+                  ),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Bill",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Icon(Icons.watch, color: Colors.white),
+                          SizedBox(
+                            width: 5,
+                          ),
+                          Text(
+                            "0.59",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(
+                    blackPiecesCaptured.length.toString(),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  const SizedBox(
+                    width: 10,
+                  ),
+                ],
+              ),
+            ),
           ],
         )); // Your game UI widget goes here.
   }

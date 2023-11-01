@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -31,47 +32,41 @@ class WebSocketProvider with ChangeNotifier {
     _board = newBoard;
   }
 
-  List<List<CheckersPiece?>> _rotateBoard(
-      List<List<CheckersPiece?>> originalBoard) {
-    List<List<CheckersPiece?>> rotatedBoard = List.generate(
-      8,
-      (row) => List.generate(
-        8,
-        (col) {
-          if ((row + col) % 2 == 1) {
-            return originalBoard[7 - row][7 - col];
-          }
-          return null;
-        },
-      ),
-    );
-    return rotatedBoard;
-  }
+  List<CheckersPiece?> get whitePiecesCaptured => _whitePiecesCaptured;
+
+  List<CheckersPiece?> _whitePiecesCaptured = [];
+
+  List<CheckersPiece?> get blackPiecesCaptured => _blackPiecesCaptured;
+  List<CheckersPiece?> _blackPiecesCaptured = [];
 
   List<List<CheckersPiece?>> get board => _board;
+
   List<List<CheckersPiece?>> _board = [];
-  static const REQUEST_START = "START";
-  static const PLAYER_MOVE = "MOVE"; //  player moves
-  static const PLAYER_CAPTURE = "CAPTURE"; // New opcode for capturing pieces
-  static const GAME_OVER_OP = "GAMEOVER"; // game over
-  static const PLAYER_ONE_TURN = "0";
-  static const PLAYER_TWO_TURN = "1";
-  static const PLAYER_WAIT = "WAIT PLAYER2";
-  static const CHANGE_TURN = "TURN";
 
   final serverUrl =
       "wss://wwpy70dc0e.execute-api.us-east-1.amazonaws.com/Prod/";
+
   String get playerId => _playerId;
+
   String get opponentId => _opponentId;
+
   String get gameId => _gameId;
+
   String _playerId = "";
+
   bool _isPlayer1 = false;
+
   String _gameId = "";
+
   String _opponentId = "";
 
   WebSocketChannel? _channel;
 
   bool _isConnected = false;
+
+  bool _waitingOpponent = false;
+
+  bool get waitingOpponent => _waitingOpponent;
 
   bool get loading => _isLoading;
 
@@ -88,41 +83,48 @@ class WebSocketProvider with ChangeNotifier {
 
   Stream<dynamic> get messageStream => _messageStreamController.stream;
 
-  // Getter to check if the WebSocket is connected
+  //check if the WebSocket is connected
   bool get isConnected => _isConnected;
 
-  Future<void> websocketconnect() async {
-    _channel = IOWebSocketChannel.connect(serverUrl);
+  Future<IOWebSocketChannel> websocketconnect() async {
+    final socket =
+        await WebSocket.connect(serverUrl).timeout(const Duration(seconds: 30));
+    return IOWebSocketChannel(socket);
   }
 
   Future<void> connect() async {
-    if (_isConnected) {
-      return;
-    }
+    try {
+      if (_isConnected) {
+        return;
+      }
 
-    _isLoading = true;
+      _isLoading = true;
 
-    await websocketconnect().then((value) {
-      _isLoading = false;
-    });
+      _channel = await websocketconnect();
 
-    _channel!.stream.listen(
-      (message) {
-        _isLoading = false;
+      _channel!.stream.listen(
+        (message) {
+          _isLoading = false;
 
-        handleWebsocketmessage(message);
-        _messageStreamController.add(message);
-        notifyListeners();
-      },
-      onError: (e) {
-        _isConnected = false;
+          handleWebsocketmessage(message);
+          _messageStreamController.add(message);
+          notifyListeners();
+        },
+        onError: (e) {
+          _isConnected = false;
 
-        _isLoading = false;
-        if (e is WebSocketChannelException) {}
-      },
-      onDone: () {},
-      cancelOnError: true,
-    );
+          _isLoading = false;
+        },
+        onDone: () {
+          print("Websocket Disconnected");
+        },
+        cancelOnError: true,
+      );
+    } on SocketException {
+      print("check internet Connection and Try Again");
+    } on WebSocketException {
+      print("Internal Server Errors please try Again");
+    } catch (e) {}
   }
 
   // Send a message over the WebSocket
@@ -133,16 +135,26 @@ class WebSocketProvider with ChangeNotifier {
   }
 
   // Send a message over the WebSocket
-  void sendMove(Source source, Destination destination) {
+  void sendMove(
+      Source source, Destination destination, Captured? captured, bool isKing) {
     final data = {
       "action": "notification",
       "operation": PLAYER_MOVE,
       "turn": isWhiteTurn ? PLAYER_ONE_TURN : PLAYER_TWO_TURN,
       "gameId": gameId,
+      "isKing": isKing,
+      "opponentId": opponentId,
       "move": {
         "source": {"row": source.row, "col": source.col},
         "destination": {"row": destination.row, "col": destination.col}
-      }
+      },
+      "captured": captured != null
+          ? {
+              "isWhite": captured.isWhite,
+              "col": captured.col,
+              "row": captured.row,
+            }
+          : null,
     };
 
     _channel!.sink.add(jsonEncode(data));
@@ -170,49 +182,105 @@ class WebSocketProvider with ChangeNotifier {
   }
 
   handleWebsocketmessage(dynamic data) {
-    print("handling message $data");
     var message = jsonDecode(data);
 
     switch (message['operation']) {
+      case PLAYER_WAIT:
+        _waitingOpponent = true;
+        break;
       case REQUEST_START:
-        // check if the player is player one
-        _isWhiteTurn = message["turn"] == PLAYER_ONE_TURN ? true : false;
-
-        _gameId = message["gameId"];
-
-        print(_gameId);
-
-        _opponentId = message["opponentId"];
-
-        print(_opponentId);
-
-        _playerId = message["yourId"];
-
-        print(_playerId);
-
-        _isPlayer1 = message["isWhite"];
-
-        _initializeBoard(message["isWhite"]);
-
-        _isConnected = true;
-        print("-----------PLAYER 1----$_isPlayer1");
-
-        notifyListeners();
-
+        _waitingOpponent = false;
+        handleRequestStart(message);
         break;
       case CHANGE_TURN:
-        if (message["turn"] == PLAYER_ONE_TURN) {
-          //
-          _isWhiteTurn = true;
-          //
-        } else if (message["turn"] == PLAYER_TWO_TURN) {
-          //
-          _isWhiteTurn = false;
-          //
-        }
-        notifyListeners();
+        handleChangeTurn(message);
         break;
+      case PLAYER_MOVE:
+        handleOpponentPlayerMove(message);
+        break;
+      case REPLAY:
       default:
     }
   }
+
+  void handleRequestStart(Map<String, dynamic> message) {
+    _isWhiteTurn = message["turn"] == PLAYER_ONE_TURN;
+    _gameId = message["gameId"];
+    _opponentId = message["opponentId"];
+    _playerId = message["yourId"];
+    _isPlayer1 = message["isWhite"];
+
+    _initializeBoard(message["isWhite"]);
+    _isConnected = true;
+
+    notifyListeners();
+  }
+
+  void handleChangeTurn(Map<String, dynamic> message) {
+    if (message["turn"] == PLAYER_ONE_TURN) {
+      _isWhiteTurn = true;
+    } else if (message["turn"] == PLAYER_TWO_TURN) {
+      _isWhiteTurn = false;
+    }
+    notifyListeners();
+  }
+
+  void handleOpponentPlayerMove(Map<String, dynamic> message) {
+    bool isKing = message["isKing"];
+
+    Map<String, dynamic> move = message['move'];
+
+    Map<String, dynamic> source = move['source'];
+
+    Map<String, dynamic> destination = move['destination'];
+
+    bool hasCapture = message["captured"] == null ? false : true;
+
+    int sourceRow = source['row'];
+
+    int sourceCol = source['col'];
+
+    int destRow = destination['row'];
+
+    int destCol = destination['col'];
+
+    // Get the moving piece from the source position
+    CheckersPiece? movingPiece = _board[sourceRow][sourceCol];
+    _board[sourceRow][sourceCol] = null;
+    _board[destRow][destCol] = movingPiece;
+
+    if (isKing) {
+      _board[destRow][destCol]?.type = CheckersPieceType.king;
+    }
+
+    if (hasCapture) {
+      var capturedItem = message["captured"];
+
+      var capturedrow = capturedItem["row"];
+
+      var capturedcol = capturedItem["col"];
+
+      var isWhite = capturedItem["isWhite"];
+
+      _board[capturedrow][capturedcol] = null;
+
+      if (isWhite) {
+        _whitePiecesCaptured.add(
+            CheckersPiece(type: CheckersPieceType.normal, isWhite: isWhite));
+      } else {
+        _blackPiecesCaptured.add(
+            CheckersPiece(type: CheckersPieceType.normal, isWhite: !isWhite));
+      }
+    }
+    notifyListeners();
+  }
+
+  static const REQUEST_START = "START";
+  static const PLAYER_MOVE = "MOVE"; //  player moves
+  static const GAME_OVER_OP = "GAMEOVER"; // game over
+  static const PLAYER_ONE_TURN = "0";
+  static const PLAYER_TWO_TURN = "1";
+  static const PLAYER_WAIT = "WAIT PLAYER2";
+  static const CHANGE_TURN = "TURN";
+  static const REPLAY = "REPLAY";
 }
