@@ -9,14 +9,14 @@ import '../../../Providers/Websocket/WebsocketProvider.dart';
 import '../../../Utility/colors.dart';
 import '../components/CheckersSquare.dart';
 
-class CheckersFriendly extends StatefulWidget {
-  const CheckersFriendly({super.key});
+class CheckersFriendlyOnline extends StatefulWidget {
+  const CheckersFriendlyOnline({super.key});
 
   @override
-  State<CheckersFriendly> createState() => _CheckersFriendlyState();
+  State<CheckersFriendlyOnline> createState() => _CheckersFriendlyOnlineState();
 }
 
-class _CheckersFriendlyState extends State<CheckersFriendly> {
+class _CheckersFriendlyOnlineState extends State<CheckersFriendlyOnline> {
   late List<List<CheckersPiece?>> board = [];
 
   // valid moves for selected piece
@@ -348,6 +348,8 @@ class _CheckersFriendlyState extends State<CheckersFriendly> {
   @override
   void initState() {
     super.initState();
+
+    Provider.of<WebSocketProvider>(context).connect(context);
   }
 
   @override
@@ -419,7 +421,7 @@ class _CheckersFriendlyState extends State<CheckersFriendly> {
                 if (webSocketProvider.isConnected) {
                   // WebSocket is already connected, handle the action accordingly
                 } else {
-                  webSocketProvider.connect();
+                  // webSocketProvider.connect();
                 }
               },
               child: const Text('Connect to WebSocket'),

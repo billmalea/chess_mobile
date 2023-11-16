@@ -1,3 +1,4 @@
+import 'package:chekaz/Providers/SignupPage/LoginNavigation.dart';
 import 'package:chekaz/Providers/Websocket/WebsocketProvider.dart';
 import 'package:chekaz/Screens/Home/Home.dart';
 import 'package:chekaz/Screens/Profile/Profile.dart';
@@ -22,6 +23,9 @@ void main() {
         ),
         ChangeNotifierProvider(
           create: (context) => WebSocketProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => LoginNavigationProvider(),
         )
       ],
       child: const MyApp(),
@@ -32,7 +36,6 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

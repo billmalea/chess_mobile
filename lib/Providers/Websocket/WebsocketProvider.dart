@@ -8,7 +8,7 @@ import '../../Logics/Checkers/checkersPiece.dart';
 import '../../Models/Source.dart';
 
 class WebSocketProvider with ChangeNotifier {
-  void _initializeBoard(bool isWhite) {
+  Future<void> _initializeBoard(bool isWhite) async {
     List<List<CheckersPiece?>> newBoard = List.generate(
       8,
       (row) => List.generate(
@@ -27,8 +27,6 @@ class WebSocketProvider with ChangeNotifier {
         },
       ),
     );
-
-    // Assign the new board to the class variable
     _board = newBoard;
   }
 
@@ -87,44 +85,83 @@ class WebSocketProvider with ChangeNotifier {
   bool get isConnected => _isConnected;
 
   Future<IOWebSocketChannel> websocketconnect() async {
-    final socket =
-        await WebSocket.connect(serverUrl).timeout(const Duration(seconds: 30));
+    final socket = await WebSocket.connect(
+      serverUrl,
+    ).timeout(
+      const Duration(minutes: 30),
+    );
     return IOWebSocketChannel(socket);
   }
 
-  Future<void> connect() async {
+  Future<void> connect(BuildContext ctx) async {
     try {
       if (_isConnected) {
         return;
       }
 
       _isLoading = true;
+      notifyListeners();
 
       _channel = await websocketconnect();
 
       _channel!.stream.listen(
         (message) {
-          _isLoading = false;
-
+          print(message);
           handleWebsocketmessage(message);
           _messageStreamController.add(message);
           notifyListeners();
         },
         onError: (e) {
+          print("websocket error################");
+
           _isConnected = false;
 
           _isLoading = false;
+
+          notifyListeners();
+
+          ScaffoldMessenger.of(ctx).showSnackBar(
+            const SnackBar(
+                duration: Duration(minutes: 1),
+                content: Text('An Error Occured')),
+          );
         },
         onDone: () {
-          print("Websocket Disconnected");
+          _isConnected = false;
+          notifyListeners();
+          ScaffoldMessenger.of(ctx).showSnackBar(
+            const SnackBar(
+                duration: Duration(minutes: 1), content: Text('Disconnected')),
+          );
         },
         cancelOnError: true,
       );
+    } on TimeoutException {
+      _isLoading = false;
+      notifyListeners();
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        const SnackBar(content: Text('Connection timed out.Please Try again.')),
+      );
     } on SocketException {
-      print("check internet Connection and Try Again");
+      _isLoading = false;
+      notifyListeners();
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        const SnackBar(
+            content: Text('Check Your  Internet Connection and Try Again')),
+      );
     } on WebSocketException {
-      print("Internal Server Errors please try Again");
-    } catch (e) {}
+      _isLoading = false;
+      notifyListeners();
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        const SnackBar(content: Text('Websocket Connection Errors')),
+      );
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        const SnackBar(content: Text('Connection Errors')),
+      );
+    }
   }
 
   // Send a message over the WebSocket
@@ -183,10 +220,15 @@ class WebSocketProvider with ChangeNotifier {
 
   handleWebsocketmessage(dynamic data) {
     var message = jsonDecode(data);
-
+    print("++++++++++++++++++++++++++++$message");
     switch (message['operation']) {
       case PLAYER_WAIT:
+        //
         _waitingOpponent = true;
+        //
+        _isLoading = false;
+        //
+        notifyListeners();
         break;
       case REQUEST_START:
         _waitingOpponent = false;
@@ -203,14 +245,23 @@ class WebSocketProvider with ChangeNotifier {
     }
   }
 
-  void handleRequestStart(Map<String, dynamic> message) {
+  void handleRequestStart(Map<String, dynamic> message) async {
     _isWhiteTurn = message["turn"] == PLAYER_ONE_TURN;
+
     _gameId = message["gameId"];
+
     _opponentId = message["opponentId"];
+
     _playerId = message["yourId"];
+
     _isPlayer1 = message["isWhite"];
 
-    _initializeBoard(message["isWhite"]);
+    await _initializeBoard(message["isWhite"]);
+
+    _isLoading = false;
+
+    _waitingOpponent = false;
+
     _isConnected = true;
 
     notifyListeners();
@@ -264,7 +315,7 @@ class WebSocketProvider with ChangeNotifier {
 
       _board[capturedrow][capturedcol] = null;
 
-      if (isWhite) {
+      if (!isWhite) {
         _whitePiecesCaptured.add(
             CheckersPiece(type: CheckersPieceType.normal, isWhite: isWhite));
       } else {
@@ -280,7 +331,7 @@ class WebSocketProvider with ChangeNotifier {
   static const GAME_OVER_OP = "GAMEOVER"; // game over
   static const PLAYER_ONE_TURN = "0";
   static const PLAYER_TWO_TURN = "1";
-  static const PLAYER_WAIT = "WAIT PLAYER2";
+  static const PLAYER_WAIT = "WAIT_PLAYER2";
   static const CHANGE_TURN = "TURN";
   static const REPLAY = "REPLAY";
 }

@@ -16,7 +16,7 @@ class CheckersStake extends StatefulWidget {
 }
 
 class _CheckersStakeState extends State<CheckersStake> {
-  late List<List<CheckersPiece?>> board = [];
+  List<List<CheckersPiece?>> board = [];
 
   // valid moves for selected piece
   List<List<int>> validMoves = [];
@@ -367,6 +367,7 @@ class _CheckersStakeState extends State<CheckersStake> {
   @override
   void dispose() {
     super.dispose();
+    Provider.of<WebSocketProvider>(context, listen: false).close();
   }
 
   CheckersPiece? selecetedPiece;
@@ -376,7 +377,7 @@ class _CheckersStakeState extends State<CheckersStake> {
   //
   int selecetedCol = -1;
 
-  bool hasMandatoryCaptureForPiece(
+  bool? hasMandatoryCaptureForPiece(
       int row, int col, List<List<CheckersPiece?>> board, bool isWhiteTurn) {
     CheckersPiece? piece = board[row][col];
     if (piece != null && piece.isWhite == isWhiteTurn) {
@@ -392,6 +393,9 @@ class _CheckersStakeState extends State<CheckersStake> {
   @override
   Widget build(BuildContext context) {
     var isWhiteTurn = Provider.of<WebSocketProvider>(context).isWhiteTurn;
+
+    bool isSignedIn = true;
+
     var isPlayer1 = Provider.of<WebSocketProvider>(context).isPlayer1;
 
     var blackPiecesCaptured =
@@ -400,203 +404,144 @@ class _CheckersStakeState extends State<CheckersStake> {
     var whitePiecesCaptured =
         Provider.of<WebSocketProvider>(context).whitePiecesCaptured;
 
-    var webSocketProvider = Provider.of<WebSocketProvider>(context);
+    var loading = Provider.of<WebSocketProvider>(context).loading;
+
+    var waitingP2 = Provider.of<WebSocketProvider>(context).waitingOpponent;
+
+    var connected = Provider.of<WebSocketProvider>(context).isConnected;
 
     return Scaffold(
         backgroundColor: foregroundColor,
-        body: Column(
-          children: [
-            webSocketProvider.loading
-                ? const CircularProgressIndicator(
-                    strokeWidth: 1,
-                  )
-                : const SizedBox(
-                    height: 10,
-                  ),
-            ElevatedButton(
-              onPressed: () {
-                if (webSocketProvider.isConnected) {
-                  // WebSocket is already connected, handle the action accordingly
-                } else {
-                  webSocketProvider.connect();
-                }
-              },
-              child: const Text('Connect to WebSocket'),
-            ),
-            webSocketProvider.isConnected
-                ? Text(
-                    whitePiecesCaptured.length.toString(),
-                    style: const TextStyle(color: Colors.black),
-                  )
-                : const SizedBox(
-                    height: 0,
-                  ),
-            Container(
-              padding: const EdgeInsets.only(top: 10, bottom: 10),
-              color: Colors.black87,
-              child: Row(
+        body: isSignedIn == false
+            ? const Center(
+                child: Text("Create An Account To Play Staked Games"),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const CircleAvatar(
-                    backgroundImage: AssetImage("assets/images/avatar.png"),
-                    radius: 20,
-                  ),
                   const SizedBox(
-                    width: 10,
+                    height: 50,
                   ),
-                  const Column(
-                    children: [
-                      Text(
-                        "Joe",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      SizedBox(height: 5),
-                      Icon(Icons.watch, color: Colors.white),
-                    ],
-                  ),
-                  const SizedBox(
-                    width: 30,
-                  ),
-                  Row(
-                    children: [
-                      const Text(
-                        "Current Turn",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      const SizedBox(
-                        width: 5,
-                      ),
-                      Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              boxShadow: const [
-                                BoxShadow(
-                                    color: Colors.black45,
-                                    offset: Offset(0, 4),
-                                    blurRadius: 4)
-                              ],
-                              color: !isWhiteTurn
-                                  ? Colors.orange
-                                  : Colors.grey[100]))
-                    ],
-                  ),
-                  const Spacer(),
-                  Text(
-                    blackPiecesCaptured.length.toString(),
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  const SizedBox(
-                    width: 10,
-                  ),
-                ],
-              ),
-            ),
-            webSocketProvider.isConnected
-                ? SizedBox(
-                    width: double.infinity,
-                    height: 400,
-                    child: Transform.rotate(
-                      angle: isPlayer1 ? 0 : 3.14159,
-                      child: GridView.builder(
-                          shrinkWrap: true,
-                          itemCount: 8 * 8,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 8),
-                          itemBuilder: (ctx, index) {
-                            int row = index ~/ 8;
-                            int col = index % 8;
-                            // check if square is selected
-                            bool isSelected =
-                                selecetedRow == row && selecetedCol == col;
-
-                            // check valid move
-                            bool validMove = false;
-
-                            for (var position in validMoves) {
-                              if (position[0] == row && position[1] == col) {
-                                validMove = true;
-                              }
-                            }
-
-                            bool isLocallPlayer() {
-                              if (isPlayer1 && isWhiteTurn) {
-                                return true;
-                              } else if (!isPlayer1 && !isWhiteTurn) {
-                                return true;
-                              }
-
-                              return false;
-                            }
-
-                            bool hasMandatoryCapture =
-                                hasMandatoryCaptureForPiece(
-                                    row, col, board, isWhiteTurn);
-                            return CheckerSquare(
-                              isSelected: isSelected,
-                              isValidMove: validMove,
-                              isWhite: isWhite(index),
-                              piece: board[row][col],
-                              onTap: () {
-                                pieceSelected(row, col, hasMandatoryCapture,
-                                    isWhiteTurn, isLocallPlayer());
-                              },
-                              hasMandatoryCapture: hasMandatoryCapture,
-                              isLocalPlayer: isLocallPlayer(),
-                            );
-                          }),
-                    ),
-                  )
-                : const SizedBox(),
-            Container(
-              padding: const EdgeInsets.only(top: 10, bottom: 10),
-              color: Colors.black87,
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    backgroundImage: AssetImage("assets/images/avatar.png"),
-                    radius: 20,
-                  ),
-                  const SizedBox(
-                    width: 10,
-                  ),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Bill",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      SizedBox(height: 5),
-                      Row(
-                        children: [
-                          Icon(Icons.watch, color: Colors.white),
-                          SizedBox(
-                            width: 5,
+                  waitingP2
+                      ? Center(
+                          child: Column(
+                            children: [
+                              const CircularProgressIndicator(
+                                strokeWidth: 1,
+                              ),
+                              SizedBox(
+                                  height: 50,
+                                  width: 50,
+                                  child:
+                                      Image.asset("assets/images/loader.gif")),
+                              const SizedBox(
+                                height: 10,
+                              ),
+                              const Text("Waiting For Opponent")
+                            ],
                           ),
-                          Text(
-                            "0.59",
-                            style: TextStyle(color: Colors.white),
+                        )
+                      : const SizedBox(),
+                  loading && !connected && !waitingP2
+                      ? const Center(
+                          child: Column(
+                            children: [
+                              CircularProgressIndicator(strokeWidth: 1),
+                              SizedBox(
+                                height: 10,
+                              ),
+                              Text('Establishing Connection..'),
+                            ],
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Text(
-                    blackPiecesCaptured.length.toString(),
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  const SizedBox(
-                    width: 10,
-                  ),
+                        )
+                      : const SizedBox(),
+                  !connected && !loading && !waitingP2
+                      ? const Center(
+                          child: Text('Select A Stake to Create Game Session '))
+                      : const SizedBox(),
+                  !connected && !loading && !waitingP2
+                      ? Center(child: _buildStakeSelection())
+                      : const SizedBox(),
+                  connected && !loading && !waitingP2
+                      ? Player2Container(
+                          isWhiteTurn: isWhiteTurn,
+                          whitePiecesCaptured: whitePiecesCaptured)
+                      : const SizedBox(
+                          height: 1,
+                        ),
+                  connected && !loading && !waitingP2
+                      ? SizedBox(
+                          width: double.infinity,
+                          height: 400,
+                          child: Transform.rotate(
+                            angle: isPlayer1 ? 0 : 3.14159,
+                            child: GridView.builder(
+                                shrinkWrap: true,
+                                itemCount: 8 * 8,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 8),
+                                itemBuilder: (ctx, index) {
+                                  int row = index ~/ 8;
+                                  int col = index % 8;
+                                  // check if square is selected
+                                  bool isSelected = selecetedRow == row &&
+                                      selecetedCol == col;
+
+                                  // check valid move
+                                  bool validMove = false;
+
+                                  for (var position in validMoves) {
+                                    if (position[0] == row &&
+                                        position[1] == col) {
+                                      validMove = true;
+                                    }
+                                  }
+
+                                  bool isLocallPlayer() {
+                                    if (isPlayer1 && isWhiteTurn) {
+                                      return true;
+                                    } else if (!isPlayer1 && !isWhiteTurn) {
+                                      return true;
+                                    }
+
+                                    return false;
+                                  }
+
+                                  bool? hasMandatoryCapture =
+                                      hasMandatoryCaptureForPiece(
+                                          row, col, board, isWhiteTurn);
+                                  return CheckerSquare(
+                                    isSelected: isSelected,
+                                    isValidMove: validMove,
+                                    isWhite: isWhite(index),
+                                    piece: board[row][col],
+                                    onTap: () {
+                                      pieceSelected(
+                                          row,
+                                          col,
+                                          hasMandatoryCapture ?? false,
+                                          isWhiteTurn,
+                                          isLocallPlayer());
+                                    },
+                                    hasMandatoryCapture:
+                                        hasMandatoryCapture ?? false,
+                                    isLocalPlayer: isLocallPlayer(),
+                                  );
+                                }),
+                          ),
+                        )
+                      : const SizedBox(),
+                  connected && !loading && !waitingP2
+                      ? Player1Container(
+                          blackPiecesCaptured: blackPiecesCaptured)
+                      : const SizedBox(
+                          height: 1,
+                        ),
                 ],
-              ),
-            ),
-          ],
-        )); // Your game UI widget goes here.
+              ));
   }
 
   static const REQUEST_START = "START";
@@ -607,4 +552,214 @@ class _CheckersStakeState extends State<CheckersStake> {
   static const PLAYER_TWO_TURN = "1";
   static const PLAYER_WAIT = "WAIT PLAYER2";
   static const CHANGE_TURN = "TURN";
+
+  Widget _buildStakeSelection() {
+    List<int> availableStakes = [
+      50,
+      100,
+      250,
+      300,
+      400,
+      500,
+      750,
+      1000,
+      1500,
+      2000,
+      2500,
+      3000,
+      5000,
+      7000,
+      10000
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10.0,
+          runSpacing: 10.0,
+          children:
+              availableStakes.map((stake) => _buildStakeButton(stake)).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStakeButton(int stake) {
+    int availablePlayers = fetchAvailablePlayers(
+        stake); // Function to retrieve available players for a stake
+
+    return Container(
+      width: 100,
+      height: 80,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(7),
+        color: Colors.blue,
+      ),
+      child: TextButton(
+        onPressed: () {
+          Provider.of<WebSocketProvider>(context, listen: false)
+              .connect(context);
+        },
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Ksh $stake',
+              style: const TextStyle(fontSize: 16, color: Colors.white),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'Players: $availablePlayers',
+              style: const TextStyle(fontSize: 12, color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int fetchAvailablePlayers(int selectedStake) {
+    Map<int, int> stakePendingPlayers = {
+      50: 3,
+      100: 1,
+      200: 5,
+      300: 0,
+    };
+
+    return stakePendingPlayers[selectedStake] ?? 0;
+  }
+}
+
+class Player2Container extends StatelessWidget {
+  const Player2Container({
+    super.key,
+    required this.isWhiteTurn,
+    required this.whitePiecesCaptured,
+  });
+
+  final bool isWhiteTurn;
+  final List<CheckersPiece?> whitePiecesCaptured;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.only(top: 10, bottom: 10),
+      color: Colors.black87,
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundImage: AssetImage("assets/images/avatar.png"),
+            radius: 20,
+          ),
+          const SizedBox(
+            width: 10,
+          ),
+          const Column(
+            children: [
+              Text(
+                "Joe",
+                style: TextStyle(color: Colors.white),
+              ),
+              SizedBox(height: 5),
+              Icon(Icons.watch, color: Colors.white),
+            ],
+          ),
+          const SizedBox(
+            width: 30,
+          ),
+          Row(
+            children: [
+              const Text(
+                "Current Turn",
+                style: TextStyle(color: Colors.white),
+              ),
+              const SizedBox(
+                width: 5,
+              ),
+              Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: const [
+                        BoxShadow(
+                            color: Colors.black45,
+                            offset: Offset(0, 4),
+                            blurRadius: 4)
+                      ],
+                      color: !isWhiteTurn ? Colors.orange : Colors.grey[100]))
+            ],
+          ),
+          const Spacer(),
+          Text(
+            whitePiecesCaptured.length.toString(),
+            style: const TextStyle(color: Colors.white),
+          ),
+          const SizedBox(
+            width: 10,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class Player1Container extends StatelessWidget {
+  const Player1Container({
+    super.key,
+    required this.blackPiecesCaptured,
+  });
+
+  final List<CheckersPiece?> blackPiecesCaptured;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.only(top: 10, bottom: 10),
+      color: Colors.black87,
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundImage: AssetImage("assets/images/avatar.png"),
+            radius: 20,
+          ),
+          const SizedBox(
+            width: 10,
+          ),
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Bill",
+                style: TextStyle(color: Colors.white),
+              ),
+              SizedBox(height: 5),
+              Row(
+                children: [
+                  Icon(Icons.watch, color: Colors.white),
+                  SizedBox(
+                    width: 5,
+                  ),
+                  Text(
+                    "0.59",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            blackPiecesCaptured.length.toString(),
+            style: const TextStyle(color: Colors.white),
+          ),
+          const SizedBox(
+            width: 10,
+          ),
+        ],
+      ),
+    );
+  }
 }

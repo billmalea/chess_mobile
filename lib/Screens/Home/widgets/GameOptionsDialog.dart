@@ -1,4 +1,6 @@
+import 'package:chekaz/Screens/Checkers/CheckersFriendly/CheckersFriendly.dart';
 import 'package:chekaz/Screens/Checkers/CheckersStake/CheckersStake.dart';
+import 'package:chekaz/Screens/Checkers/Offline/CheckersGameOffline.dart';
 import 'package:chekaz/Utility/PageRoute.dart';
 import 'package:flutter/material.dart';
 
@@ -51,7 +53,7 @@ class GameOptionsDialog extends StatelessWidget {
             style: TextStyle(fontSize: 13),
           ),
           onTap: () {
-            pagenavigation(context, const CheckersStake());
+            pagenavigation(context, const CheckersFriendlyOnline());
           },
         ),
         ListTile(
@@ -77,7 +79,7 @@ class GameOptionsDialog extends StatelessWidget {
             style: TextStyle(fontSize: 13),
           ),
           onTap: () {
-            pagenavigation(context, const CheckersStake());
+            pagenavigation(context, const CheckersOfflineMultiplayer());
           },
         ),
       ],
