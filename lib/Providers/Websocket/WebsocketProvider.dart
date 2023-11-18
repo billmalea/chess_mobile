@@ -7,6 +7,8 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../Logics/Checkers/checkersPiece.dart';
 import '../../Models/Source.dart';
 
+enum GameType { checkers, chess }
+
 class WebSocketProvider with ChangeNotifier {
   Future<void> _initializeBoard(bool isWhite) async {
     List<List<CheckersPiece?>> newBoard = List.generate(
@@ -35,6 +37,7 @@ class WebSocketProvider with ChangeNotifier {
   List<CheckersPiece?> _whitePiecesCaptured = [];
 
   List<CheckersPiece?> get blackPiecesCaptured => _blackPiecesCaptured;
+
   List<CheckersPiece?> _blackPiecesCaptured = [];
 
   List<List<CheckersPiece?>> get board => _board;
@@ -81,28 +84,35 @@ class WebSocketProvider with ChangeNotifier {
 
   Stream<dynamic> get messageStream => _messageStreamController.stream;
 
-  //check if the WebSocket is connected
   bool get isConnected => _isConnected;
 
-  Future<IOWebSocketChannel> websocketconnect() async {
-    final socket = await WebSocket.connect(
-      serverUrl,
-    ).timeout(
-      const Duration(minutes: 30),
+  Future<IOWebSocketChannel> websocketconnect(
+      int? stake, GameType game, String? gameId) async {
+    final header = {"stake": stake, "gametype": game, "gameId": gameId};
+
+    final socket = await WebSocket.connect(serverUrl,
+            headers: stake != null ? header : null)
+        .timeout(
+      const Duration(seconds: 30),
     );
     return IOWebSocketChannel(socket);
   }
 
-  Future<void> connect(BuildContext ctx) async {
+  Future<void> connect(
+      {required BuildContext ctx,
+      required int? stake,
+      required GameType game,
+      required String? gameId}) async {
     try {
       if (_isConnected) {
         return;
       }
 
       _isLoading = true;
+
       notifyListeners();
 
-      _channel = await websocketconnect();
+      _channel = await websocketconnect(stake, game, gameId);
 
       _channel!.stream.listen(
         (message) {
@@ -112,7 +122,7 @@ class WebSocketProvider with ChangeNotifier {
           notifyListeners();
         },
         onError: (e) {
-          print("websocket error################");
+          print("websocket error################ $e");
 
           _isConnected = false;
 
@@ -127,8 +137,7 @@ class WebSocketProvider with ChangeNotifier {
           );
         },
         onDone: () {
-          _isConnected = false;
-          notifyListeners();
+          handleDisconnect();
           ScaffoldMessenger.of(ctx).showSnackBar(
             const SnackBar(
                 duration: Duration(minutes: 1), content: Text('Disconnected')),
@@ -225,6 +234,7 @@ class WebSocketProvider with ChangeNotifier {
       case PLAYER_WAIT:
         //
         _waitingOpponent = true;
+
         //
         _isLoading = false;
         //
@@ -323,6 +333,13 @@ class WebSocketProvider with ChangeNotifier {
             CheckersPiece(type: CheckersPieceType.normal, isWhite: !isWhite));
       }
     }
+    notifyListeners();
+  }
+
+  void handleDisconnect() {
+    _waitingOpponent = false;
+    _isConnected = false;
+    _isLoading = false;
     notifyListeners();
   }
 

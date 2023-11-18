@@ -427,12 +427,9 @@ class _CheckersStakeState extends State<CheckersStake> {
                       ? Center(
                           child: Column(
                             children: [
-                              const CircularProgressIndicator(
-                                strokeWidth: 1,
-                              ),
                               SizedBox(
-                                  height: 50,
-                                  width: 50,
+                                  height: 70,
+                                  width: 80,
                                   child:
                                       Image.asset("assets/images/loader.gif")),
                               const SizedBox(
@@ -587,8 +584,7 @@ class _CheckersStakeState extends State<CheckersStake> {
   }
 
   Widget _buildStakeButton(int stake) {
-    int availablePlayers = fetchAvailablePlayers(
-        stake); // Function to retrieve available players for a stake
+    int availablePlayers = fetchAvailablePlayers(stake);
 
     return Container(
       width: 100,
@@ -599,8 +595,11 @@ class _CheckersStakeState extends State<CheckersStake> {
       ),
       child: TextButton(
         onPressed: () {
-          Provider.of<WebSocketProvider>(context, listen: false)
-              .connect(context);
+          Provider.of<WebSocketProvider>(context, listen: false).connect(
+              ctx: context,
+              stake: stake,
+              game: GameType.checkers,
+              gameId: null);
         },
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

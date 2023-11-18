@@ -348,8 +348,8 @@ class _CheckersFriendlyOnlineState extends State<CheckersFriendlyOnline> {
   @override
   void initState() {
     super.initState();
-
-    Provider.of<WebSocketProvider>(context).connect(context);
+    Provider.of<WebSocketProvider>(context).connect(
+        ctx: context, stake: null, game: GameType.checkers, gameId: null);
   }
 
   @override
@@ -395,6 +395,7 @@ class _CheckersFriendlyOnlineState extends State<CheckersFriendlyOnline> {
   @override
   Widget build(BuildContext context) {
     var isWhiteTurn = Provider.of<WebSocketProvider>(context).isWhiteTurn;
+
     var isPlayer1 = Provider.of<WebSocketProvider>(context).isPlayer1;
 
     var blackPiecesCaptured =
