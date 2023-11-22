@@ -1,14 +1,71 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../Providers/Auth/CognitoAuthProvider.dart';
+import '../../main.dart';
+import '../Login/SignupPage.dart';
 
 class WalletPage extends StatelessWidget {
   const WalletPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
+    var loggedIn = Provider.of<CognitoAuthProvider>(context).isSignedIn;
+    return loggedIn
+        ? const WalletUi()
+        : Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Text(
+                'Create an account or Login to Access Your Wallet.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => SignupPage(route: HomePage())),
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(
+                      right: 25, left: 25, bottom: 10, top: 20),
+                  height: 40,
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.all(Radius.circular(7)),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'Create Account',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+  }
+}
+
+class WalletUi extends StatelessWidget {
+  const WalletUi({
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Scaffold(
+        body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),

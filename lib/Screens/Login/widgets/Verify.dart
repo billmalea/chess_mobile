@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../Providers/Auth/CognitoAuthProvider.dart';
 import '../../../Utility/Formfield.dart';
 
 class VerificationWidget extends StatefulWidget {
@@ -28,24 +29,23 @@ class _VerificationWidgetState extends State<VerificationWidget> {
         _isloading = true;
       });
 
-      // Provider.of<CognitoAuthProvider>(context, listen: false)
-      //     .confirmUser(
-      //         confirmationCode: _verificationcode,
-      //         context: context,
-      //         route: widget.route)
-      //     .whenComplete(() {
-      //   setState(() {
-      //     _isloading = false;
-      //   });
-      // });
+      Provider.of<CognitoAuthProvider>(context, listen: false)
+          .confirmUser(
+              confirmationCode: _verificationcode,
+              context: context,
+              route: widget.route)
+          .whenComplete(() {
+        setState(() {
+          _isloading = false;
+        });
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // var email = Provider.of<CognitoAuthProvider>(context, listen: false)
-    //     .verificationEmail;
-    var email = "";
+    var email = Provider.of<CognitoAuthProvider>(context, listen: false)
+        .verificationEmail;
 
     var registeredEmail = email.isEmpty ? 'your email Address' : email;
     return Form(
@@ -136,11 +136,11 @@ class _VerificationWidgetState extends State<VerificationWidget> {
                     ),
                     InkWell(
                       onTap: () {},
-                      child: Text(
+                      child: const Text(
                         'Resend',
                         style: TextStyle(
                           fontSize: 17,
-                          color: Theme.of(context).colorScheme.secondary,
+                          color: Colors.blue,
                         ),
                       ),
                     ),

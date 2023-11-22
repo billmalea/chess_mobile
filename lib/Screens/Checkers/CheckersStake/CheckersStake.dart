@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:chekaz/Logics/Checkers/checkersPiece.dart';
 import 'package:chekaz/Models/Source.dart';
+import 'package:chekaz/Providers/Auth/CognitoAuthProvider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../Logics/Chess/chess.dart';
@@ -379,11 +379,15 @@ class _CheckersStakeState extends State<CheckersStake> {
 
   bool? hasMandatoryCaptureForPiece(
       int row, int col, List<List<CheckersPiece?>> board, bool isWhiteTurn) {
-    CheckersPiece? piece = board[row][col];
-    if (piece != null && piece.isWhite == isWhiteTurn) {
-      List<List<int>> captureMoves =
-          calculatevalidCaptureMoves(row, col, piece);
-      return captureMoves.isNotEmpty;
+    // board initialized
+    if (row >= 0 && row < board.length && col >= 0 && col < board[row].length) {
+      CheckersPiece? piece = board[row][col];
+
+      if (piece != null && piece.isWhite == isWhiteTurn) {
+        List<List<int>> captureMoves =
+            calculatevalidCaptureMoves(row, col, piece);
+        return captureMoves.isNotEmpty;
+      }
     }
     return false;
   }
@@ -510,6 +514,7 @@ class _CheckersStakeState extends State<CheckersStake> {
                                   bool? hasMandatoryCapture =
                                       hasMandatoryCaptureForPiece(
                                           row, col, board, isWhiteTurn);
+
                                   return CheckerSquare(
                                     isSelected: isSelected,
                                     isValidMove: validMove,
@@ -584,6 +589,8 @@ class _CheckersStakeState extends State<CheckersStake> {
   }
 
   Widget _buildStakeButton(int stake) {
+    var user = Provider.of<CognitoAuthProvider>(context).user;
+
     int availablePlayers = fetchAvailablePlayers(stake);
 
     return Container(
@@ -599,7 +606,8 @@ class _CheckersStakeState extends State<CheckersStake> {
               ctx: context,
               stake: stake,
               game: GameType.checkers,
-              gameId: null);
+              gameId: null,
+              user: user!);
         },
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

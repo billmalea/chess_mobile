@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -45,7 +46,7 @@ class WebSocketProvider with ChangeNotifier {
   List<List<CheckersPiece?>> _board = [];
 
   final serverUrl =
-      "wss://wwpy70dc0e.execute-api.us-east-1.amazonaws.com/Prod/";
+      "wss://z1ljb13ln5.execute-api.us-east-1.amazonaws.com/Prod/";
 
   String get playerId => _playerId;
 
@@ -87,12 +88,41 @@ class WebSocketProvider with ChangeNotifier {
   bool get isConnected => _isConnected;
 
   Future<IOWebSocketChannel> websocketconnect(
-      int? stake, GameType game, String? gameId) async {
-    final header = {"stake": stake, "gametype": game, "gameId": gameId};
+      int? stake, GameType game, String? gameId, AuthUser user) async {
+    dynamic header() {
+      if (stake != null) {
+        return {
+          "stake": stake,
+          "gametype": game == GameType.checkers ? "checkers" : "chess",
+          "username": user.userId,
+          "userId": user.username
+        };
+      } else if (stake != null && gameId != null) {
+        return {
+          "stake": stake,
+          "gametype": game == GameType.checkers ? "checkers" : "chess",
+          "gameId": gameId,
+          "username": user.userId,
+          "userId": user.username
+        };
+      } else if (gameId != null) {
+        return {
+          "gametype": game == GameType.checkers ? "checkers" : "chess",
+          "gameId": gameId,
+          "username": user.userId,
+          "userId": user.username
+        };
+      } else {
+        return {
+          "gametype": game == GameType.checkers ? "checkers" : "chess",
+          "username": user.userId,
+          "userId": user.username
+        };
+      }
+    }
 
-    final socket = await WebSocket.connect(serverUrl,
-            headers: stake != null ? header : null)
-        .timeout(
+    final socket =
+        await WebSocket.connect(serverUrl, headers: header()).timeout(
       const Duration(seconds: 30),
     );
     return IOWebSocketChannel(socket);
@@ -102,7 +132,8 @@ class WebSocketProvider with ChangeNotifier {
       {required BuildContext ctx,
       required int? stake,
       required GameType game,
-      required String? gameId}) async {
+      required String? gameId,
+      required AuthUser user}) async {
     try {
       if (_isConnected) {
         return;
@@ -112,7 +143,7 @@ class WebSocketProvider with ChangeNotifier {
 
       notifyListeners();
 
-      _channel = await websocketconnect(stake, game, gameId);
+      _channel = await websocketconnect(stake, game, gameId, user);
 
       _channel!.stream.listen(
         (message) {
@@ -165,6 +196,7 @@ class WebSocketProvider with ChangeNotifier {
         const SnackBar(content: Text('Websocket Connection Errors')),
       );
     } catch (e) {
+      print("****************$e");
       _isLoading = false;
       notifyListeners();
       ScaffoldMessenger.of(ctx).showSnackBar(
@@ -222,14 +254,14 @@ class WebSocketProvider with ChangeNotifier {
   // Close the WebSocket connection
   void close() {
     _isConnected = false;
-    final data = {"action": "disconnect"};
+    final data = {"action": "disconnect", "gameId": _gameId};
 
     _channel!.sink.add(jsonEncode(data));
   }
 
   handleWebsocketmessage(dynamic data) {
     var message = jsonDecode(data);
-    print("++++++++++++++++++++++++++++$message");
+
     switch (message['operation']) {
       case PLAYER_WAIT:
         //
@@ -238,7 +270,11 @@ class WebSocketProvider with ChangeNotifier {
         //
         _isLoading = false;
         //
+
+        _gameId = message["gameId"];
+
         notifyListeners();
+        //
         break;
       case REQUEST_START:
         _waitingOpponent = false;

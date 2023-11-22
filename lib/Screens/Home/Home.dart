@@ -1,7 +1,9 @@
 import 'package:chekaz/Screens/Checkers/CheckersStake/CheckersStake.dart';
 import 'package:chekaz/Screens/Chess/ChessGameBoard.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../Providers/Auth/CognitoAuthProvider.dart';
 import 'widgets/GameOptionsDialog.dart';
 
 class Home extends StatelessWidget {
@@ -9,6 +11,7 @@ class Home extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    var autheniticated = Provider.of<CognitoAuthProvider>(context).isSignedIn;
     return Padding(
       padding: const EdgeInsets.only(top: 70),
       child: GridView.count(
@@ -20,13 +23,13 @@ class Home extends StatelessWidget {
           GameItem(
             title: 'Checkers',
             onTap: () {
-              _showGameOptions(context, 'Checkers');
+              _showGameOptions(context, 'Checkers', autheniticated);
             },
           ),
           GameItem(
             title: 'Chess',
             onTap: () {
-              _showGameOptions(context, 'Chess');
+              _showGameOptions(context, 'Chess', autheniticated);
             },
           ),
         ],
@@ -35,14 +38,18 @@ class Home extends StatelessWidget {
   }
 }
 
-void _showGameOptions(BuildContext context, String gameTitle) {
+void _showGameOptions(
+    BuildContext context, String gameTitle, bool autheniticated) {
   showModalBottomSheet(
     context: context,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(7)),
     ),
     builder: (BuildContext builder) {
-      return GameOptionsDialog(gameTitle: gameTitle);
+      return GameOptionsDialog(
+        gameTitle: gameTitle,
+        autheniticated: autheniticated,
+      );
     },
   );
 }

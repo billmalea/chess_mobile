@@ -1,3 +1,5 @@
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
+import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:chekaz/Providers/SignupPage/LoginNavigation.dart';
 import 'package:chekaz/Providers/Websocket/WebsocketProvider.dart';
 import 'package:chekaz/Screens/Home/Home.dart';
@@ -6,11 +8,42 @@ import 'package:chekaz/Screens/Referal/Referal.dart';
 import 'package:chekaz/Screens/Wallet/Wallet.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'Providers/CheckersLogic/CheckersLogicProvider.dart';
+import 'Providers/Auth/CognitoAuthProvider.dart';
 import 'Providers/NavProvider/BottomNavBar.dart';
 import 'Screens/Tournament/Tournament.dart';
+import 'Utility/endpoint/AmplifyConfigbuilder.dart';
+import 'Utility/endpoint/endpoint.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  Future configureAmplify() async {
+    if (Amplify.isConfigured) {
+      return Future.value();
+    }
+
+    await Amplify.addPlugins([AmplifyAuthCognito()]);
+
+    final stringConfiguration = AmplifyConfigurationBuilder.build(
+      cognitoIdentityPoolId: cognitoUserpoolId,
+      cognitoIdentityRegion: resourceRegion,
+      cognitoUserPoolId: cognitoUserpoolId,
+      cognitoUserPoolAppClientId: cognitoUserPoolClientId,
+      cognitoUserPoolRegion: resourceRegion,
+      authenticationFlowType: 'USER_SRP_AUTH',
+      apiName: 'api',
+      graphqlEndpoint: graphQlEndpoint,
+      graphqlRegion: resourceRegion,
+      graphqlapiKey: apiKeyGraphql,
+    );
+    try {
+      await Amplify.configure(stringConfiguration);
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  await configureAmplify();
+
   runApp(
     MultiProvider(
       key: ObjectKey(DateTime.now().toString()),
@@ -19,13 +52,13 @@ void main() {
           create: (context) => BottomNavProvider(),
         ),
         ChangeNotifierProvider(
-          create: (context) => CheckersGameProvider(),
-        ),
-        ChangeNotifierProvider(
           create: (context) => WebSocketProvider(),
         ),
         ChangeNotifierProvider(
           create: (context) => LoginNavigationProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => CognitoAuthProvider(),
         )
       ],
       child: const MyApp(),
@@ -33,8 +66,25 @@ void main() {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Provider.of<CognitoAuthProvider>(context, listen: false)
+          .isLoggedIn(context);
+      // ignore: use_build_context_synchronously
+      await Provider.of<CognitoAuthProvider>(context, listen: false)
+          .currentuser();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +92,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Chekaz',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.black87),
         useMaterial3: true,
       ),
       home: HomePage(),

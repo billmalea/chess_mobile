@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:chekaz/Logics/Checkers/checkersPiece.dart';
 import 'package:chekaz/Models/Source.dart';
+import 'package:chekaz/Providers/Auth/CognitoAuthProvider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -348,15 +349,20 @@ class _CheckersFriendlyOnlineState extends State<CheckersFriendlyOnline> {
   @override
   void initState() {
     super.initState();
+
+    var user = Provider.of<CognitoAuthProvider>(context).user;
+
     Provider.of<WebSocketProvider>(context).connect(
-        ctx: context, stake: null, game: GameType.checkers, gameId: null);
+        ctx: context,
+        stake: null,
+        game: GameType.checkers,
+        gameId: null,
+        user: user!);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    // Use a Future-based approach to wait for the board initialization
     Future.delayed(Duration.zero, () {
       var newBoard =
           Provider.of<WebSocketProvider>(context, listen: false).board;
@@ -602,13 +608,4 @@ class _CheckersFriendlyOnlineState extends State<CheckersFriendlyOnline> {
           ],
         )); // Your game UI widget goes here.
   }
-
-  static const REQUEST_START = "START";
-  static const PLAYER_MOVE = "MOVE"; //  player moves
-  static const PLAYER_CAPTURE = "CAPTURE"; // New opcode for capturing pieces
-  static const GAME_OVER_OP = "GAMEOVER"; // game over
-  static const PLAYER_ONE_TURN = "0";
-  static const PLAYER_TWO_TURN = "1";
-  static const PLAYER_WAIT = "WAIT PLAYER2";
-  static const CHANGE_TURN = "TURN";
 }

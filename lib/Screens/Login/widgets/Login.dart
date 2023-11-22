@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../Providers/Auth/CognitoAuthProvider.dart';
 import '../../../Providers/SignupPage/LoginNavigation.dart';
 import '../../../Utility/Formfield.dart';
 
@@ -30,14 +31,18 @@ class _LoginWidgetState extends State<LoginWidget> {
 
       final formattedPhoneNumber = '+254${_phoneNumberOrEmail.substring(1)}';
 
-      // Provider.of<CognitoAuthProvider>(context, listen: false)
-      //     .signInUser(formattedPhoneNumber, _password, context, widget.route)
-      //     .whenComplete(() {
-      //   setState(() {
-      //     _isloading = false;
-      //   });
-      // });
+      Provider.of<CognitoAuthProvider>(context, listen: false)
+          .signInUser(formattedPhoneNumber, _password, context, widget.route)
+          .whenComplete(() {
+        setState(() {
+          _isloading = false;
+        });
+      });
     }
+  }
+
+  void signInWithGoogle() {
+    print('Signing in with Google');
   }
 
   @override
@@ -111,10 +116,9 @@ class _LoginWidgetState extends State<LoginWidget> {
                           right: 25, left: 25, bottom: 10, top: 20),
                       height: 40,
                       width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondary,
-                        borderRadius:
-                            const BorderRadius.all(Radius.circular(7)),
+                      decoration: const BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.all(Radius.circular(7)),
                       ),
                       child: const Center(
                         child: Text(
@@ -149,13 +153,43 @@ class _LoginWidgetState extends State<LoginWidget> {
                                 listen: false)
                             .select(1);
                       },
-                      child: Text(
+                      child: const Text(
                         'Create Account',
                         style: TextStyle(
                           fontSize: 17,
-                          color: Theme.of(context).colorScheme.secondary,
+                          color: Colors.blue,
                         ),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            InkWell(
+              onTap: signInWithGoogle,
+              child: Container(
+                margin: const EdgeInsets.only(
+                    right: 25, left: 25, bottom: 10, top: 20),
+                height: 40,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Google icon
+                    Image.asset(
+                      'assets/images/google.png', // Replace with your Google icon asset
+                      height: 24,
+                      width: 24,
+                    ),
+                    const SizedBox(width: 10),
+                    // Text on the button
+                    const Text(
+                      'Sign in with Google',
+                      style: TextStyle(fontSize: 15, color: Colors.white),
                     ),
                   ],
                 ),

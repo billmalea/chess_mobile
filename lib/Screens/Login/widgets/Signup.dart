@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../Providers/Auth/CognitoAuthProvider.dart';
+import '../../../Providers/SignupPage/LoginNavigation.dart';
 import '../../../Utility/Formfield.dart';
 
 class RegisterWidget extends StatefulWidget {
@@ -26,19 +28,19 @@ class _RegisterWidgetState extends State<RegisterWidget> {
       });
       final formattedPhoneNumber = '+254${_phoneNumber.substring(1)}';
 
-      // Provider.of<CognitoAuthProvider>(context, listen: false)
-      //     .signUpUser(
-      //   username: _username,
-      //   password: _password,
-      //   email: _email,
-      //   phoneNumber: formattedPhoneNumber,
-      //   context: context,
-      // )
-      //     .whenComplete(() {
-      //   setState(() {
-      //     _isloading = false;
-      //   });
-      // });
+      Provider.of<CognitoAuthProvider>(context, listen: false)
+          .signUpUser(
+        username: _username,
+        password: _password,
+        email: _email,
+        phoneNumber: formattedPhoneNumber,
+        context: context,
+      )
+          .whenComplete(() {
+        setState(() {
+          _isloading = false;
+        });
+      });
     }
   }
 
@@ -162,9 +164,9 @@ class _RegisterWidgetState extends State<RegisterWidget> {
                         right: 25, left: 25, bottom: 10, top: 20),
                     height: 40,
                     width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.secondary,
-                      borderRadius: const BorderRadius.all(Radius.circular(7)),
+                    decoration: const BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.all(Radius.circular(7)),
                     ),
                     child: const Center(
                       child: Text(
@@ -195,15 +197,15 @@ class _RegisterWidgetState extends State<RegisterWidget> {
                   ),
                   InkWell(
                     onTap: () {
-                      // Provider.of<LoginNavigationProvider>(context,
-                      //         listen: false)
-                      //     .select(0);
+                      Provider.of<LoginNavigationProvider>(context,
+                              listen: false)
+                          .select(0);
                     },
-                    child: Text(
+                    child: const Text(
                       'Login ',
                       style: TextStyle(
                         fontSize: 20,
-                        color: Theme.of(context).colorScheme.secondary,
+                        color: Colors.blue,
                       ),
                     ),
                   ),
