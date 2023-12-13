@@ -14,11 +14,17 @@ class RegisterWidget extends StatefulWidget {
 class _RegisterWidgetState extends State<RegisterWidget> {
   final _registerFormKey = GlobalKey<FormState>();
   String _username = '';
+
   String _phoneNumber = '';
+
   String _email = '';
+
   String _password = '';
+
   String _confirmPassword = '';
+
   var _isloading = false;
+
   register() {
     var isValid = _registerFormKey.currentState!.validate();
     if (isValid) {

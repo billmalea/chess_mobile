@@ -1,5 +1,6 @@
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
+import 'package:chekaz/Providers/Mpesa/MpesaProvider.dart';
 import 'package:chekaz/Providers/SignupPage/LoginNavigation.dart';
 import 'package:chekaz/Providers/Websocket/WebsocketProvider.dart';
 import 'package:chekaz/Screens/Home/Home.dart';
@@ -59,6 +60,9 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (context) => CognitoAuthProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => PaymentProvider(),
         )
       ],
       child: const MyApp(),
@@ -92,8 +96,14 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       title: 'Chekaz',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.black87),
-        useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+            iconTheme: IconThemeData(size: 17, color: Colors.white),
+            color: Colors.black87,
+            centerTitle: true,
+            titleTextStyle: TextStyle(color: Colors.white)),
+        primarySwatch: Colors.amber,
+        primaryColor: Colors.black87,
+        useMaterial3: false,
       ),
       home: HomePage(),
     );

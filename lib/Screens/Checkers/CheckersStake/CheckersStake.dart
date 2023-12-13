@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:chekaz/Logics/Checkers/checkersPiece.dart';
 import 'package:chekaz/Models/Source.dart';
 import 'package:chekaz/Providers/Auth/CognitoAuthProvider.dart';
@@ -16,6 +18,12 @@ class CheckersStake extends StatefulWidget {
 }
 
 class _CheckersStakeState extends State<CheckersStake> {
+  Timer? turnTimer;
+
+  void startTurnTimer() {
+    turnTimer = Timer(const Duration(minutes: 1, seconds: 30), () {});
+  }
+
   List<List<CheckersPiece?>> board = [];
 
   // valid moves for selected piece
@@ -92,6 +100,9 @@ class _CheckersStakeState extends State<CheckersStake> {
             board[row + direction][col + 1] == null) {
           possibleMoves.add([row + direction, col + 1]);
         }
+        //backward right move
+
+        //backward left move
       }
 
       //if there are capture moves show the moves
@@ -465,83 +476,81 @@ class _CheckersStakeState extends State<CheckersStake> {
                       ? Center(child: _buildStakeSelection())
                       : const SizedBox(),
                   connected && !loading && !waitingP2
-                      ? Player2Container(
-                          isWhiteTurn: isWhiteTurn,
-                          whitePiecesCaptured: whitePiecesCaptured)
-                      : const SizedBox(
-                          height: 1,
-                        ),
-                  connected && !loading && !waitingP2
-                      ? SizedBox(
-                          width: double.infinity,
-                          height: 400,
-                          child: Transform.rotate(
-                            angle: isPlayer1 ? 0 : 3.14159,
-                            child: GridView.builder(
-                                shrinkWrap: true,
-                                itemCount: 8 * 8,
-                                physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 8),
-                                itemBuilder: (ctx, index) {
-                                  int row = index ~/ 8;
-                                  int col = index % 8;
-                                  // check if square is selected
-                                  bool isSelected = selecetedRow == row &&
-                                      selecetedCol == col;
+                      ? Column(
+                          children: [
+                            Player2Container(
+                                isWhiteTurn: isWhiteTurn,
+                                whitePiecesCaptured: whitePiecesCaptured),
+                            SizedBox(
+                              width: double.infinity,
+                              child: Transform.rotate(
+                                angle: isPlayer1 ? 0 : 3.14159,
+                                child: GridView.builder(
+                                    shrinkWrap: true,
+                                    itemCount: 8 * 8,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: 8),
+                                    itemBuilder: (ctx, index) {
+                                      int row = index ~/ 8;
+                                      int col = index % 8;
+                                      // check if square is selected
+                                      bool isSelected = selecetedRow == row &&
+                                          selecetedCol == col;
 
-                                  // check valid move
-                                  bool validMove = false;
+                                      // check valid move
+                                      bool validMove = false;
 
-                                  for (var position in validMoves) {
-                                    if (position[0] == row &&
-                                        position[1] == col) {
-                                      validMove = true;
-                                    }
-                                  }
+                                      for (var position in validMoves) {
+                                        if (position[0] == row &&
+                                            position[1] == col) {
+                                          validMove = true;
+                                        }
+                                      }
 
-                                  bool isLocallPlayer() {
-                                    if (isPlayer1 && isWhiteTurn) {
-                                      return true;
-                                    } else if (!isPlayer1 && !isWhiteTurn) {
-                                      return true;
-                                    }
+                                      bool isLocallPlayer() {
+                                        if (isPlayer1 && isWhiteTurn) {
+                                          return true;
+                                        } else if (!isPlayer1 && !isWhiteTurn) {
+                                          return true;
+                                        }
 
-                                    return false;
-                                  }
+                                        return false;
+                                      }
 
-                                  bool? hasMandatoryCapture =
-                                      hasMandatoryCaptureForPiece(
-                                          row, col, board, isWhiteTurn);
+                                      bool? hasMandatoryCapture =
+                                          hasMandatoryCaptureForPiece(
+                                              row, col, board, isWhiteTurn);
 
-                                  return CheckerSquare(
-                                    isSelected: isSelected,
-                                    isValidMove: validMove,
-                                    isWhite: isWhite(index),
-                                    piece: board[row][col],
-                                    onTap: () {
-                                      pieceSelected(
-                                          row,
-                                          col,
-                                          hasMandatoryCapture ?? false,
-                                          isWhiteTurn,
-                                          isLocallPlayer());
-                                    },
-                                    hasMandatoryCapture:
-                                        hasMandatoryCapture ?? false,
-                                    isLocalPlayer: isLocallPlayer(),
-                                  );
-                                }),
-                          ),
+                                      return CheckerSquare(
+                                        isSelected: isSelected,
+                                        isValidMove: validMove,
+                                        isWhite: isWhite(index),
+                                        piece: board[row][col],
+                                        onTap: () {
+                                          pieceSelected(
+                                              row,
+                                              col,
+                                              hasMandatoryCapture ?? false,
+                                              isWhiteTurn,
+                                              isLocallPlayer());
+                                        },
+                                        hasMandatoryCapture:
+                                            hasMandatoryCapture ?? false,
+                                        isLocalPlayer: isLocallPlayer(),
+                                      );
+                                    }),
+                              ),
+                            ),
+                            Player1Container(
+                              blackPiecesCaptured: blackPiecesCaptured,
+                              isWhiteTurn: isWhiteTurn,
+                            ),
+                          ],
                         )
                       : const SizedBox(),
-                  connected && !loading && !waitingP2
-                      ? Player1Container(
-                          blackPiecesCaptured: blackPiecesCaptured)
-                      : const SizedBox(
-                          height: 1,
-                        ),
                 ],
               ));
   }
@@ -639,15 +648,57 @@ class _CheckersStakeState extends State<CheckersStake> {
   }
 }
 
-class Player2Container extends StatelessWidget {
-  const Player2Container({
-    super.key,
-    required this.isWhiteTurn,
-    required this.whitePiecesCaptured,
-  });
+class Player1Container extends StatefulWidget {
+  const Player1Container(
+      {Key? key, required this.blackPiecesCaptured, required this.isWhiteTurn})
+      : super(key: key);
 
+  final List<CheckersPiece?> blackPiecesCaptured;
   final bool isWhiteTurn;
-  final List<CheckersPiece?> whitePiecesCaptured;
+
+  @override
+  _Player1ContainerState createState() => _Player1ContainerState();
+}
+
+class _Player1ContainerState extends State<Player1Container> {
+  late Timer turnTimer;
+  late Duration remainingTime = const Duration(minutes: 1, seconds: 30);
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isWhiteTurn) {
+      startTurnTimer();
+    }
+  }
+
+  @override
+  void dispose() {
+    turnTimer.cancel();
+    super.dispose();
+  }
+
+  void startTurnTimer() {
+    turnTimer = Timer.periodic(const Duration(seconds: 1), (Timer timer) {
+      setState(() {
+        if (remainingTime.inSeconds > 0) {
+          remainingTime = remainingTime - const Duration(seconds: 1);
+        } else {
+          // Handle the expiration of the timer, possibly end the turn or take some action.
+        }
+      });
+    });
+  }
+
+  void resetTurnTimer() {
+    turnTimer.cancel();
+    setState(() {
+      remainingTime = const Duration(minutes: 1, seconds: 30);
+    });
+    if (widget.isWhiteTurn) {
+      startTurnTimer();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -663,14 +714,132 @@ class Player2Container extends StatelessWidget {
           const SizedBox(
             width: 10,
           ),
-          const Column(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
+                "Bill",
+                style: TextStyle(color: Colors.white),
+              ),
+              const SizedBox(height: 5),
+              Row(
+                children: [
+                  const Icon(Icons.watch, color: Colors.white),
+                  const SizedBox(
+                    width: 5,
+                  ),
+                  if (widget.isWhiteTurn)
+                    Text(
+                      '${remainingTime.inMinutes}:${(remainingTime.inSeconds % 60).toString().padLeft(2, '0')}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            widget.blackPiecesCaptured.length.toString(),
+            style: const TextStyle(color: Colors.white),
+          ),
+          const SizedBox(
+            width: 10,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class Player2Container extends StatefulWidget {
+  const Player2Container({
+    Key? key,
+    required this.isWhiteTurn,
+    required this.whitePiecesCaptured,
+  }) : super(key: key);
+
+  final bool isWhiteTurn;
+  final List<CheckersPiece?> whitePiecesCaptured;
+
+  @override
+  _Player2ContainerState createState() => _Player2ContainerState();
+}
+
+class _Player2ContainerState extends State<Player2Container> {
+  late Timer turnTimer;
+  late Duration remainingTime = const Duration(minutes: 1, seconds: 30);
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.isWhiteTurn) {
+      startTurnTimer();
+    }
+  }
+
+  @override
+  void dispose() {
+    turnTimer.cancel();
+    super.dispose();
+  }
+
+  void startTurnTimer() {
+    turnTimer = Timer.periodic(const Duration(seconds: 1), (Timer timer) {
+      setState(() {
+        if (remainingTime.inSeconds > 0) {
+          remainingTime = remainingTime - const Duration(seconds: 1);
+        } else {
+          // Handle the expiration of the timer, possibly end the turn or take some action.
+        }
+      });
+    });
+  }
+
+  void resetTurnTimer() {
+    turnTimer.cancel();
+    setState(() {
+      remainingTime = const Duration(minutes: 1, seconds: 30);
+    });
+    if (!widget.isWhiteTurn) {
+      startTurnTimer();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.only(top: 10, bottom: 10),
+      color: Colors.black87,
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundImage: AssetImage("assets/images/avatar.png"),
+            radius: 20,
+          ),
+          const SizedBox(
+            width: 10,
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
                 "Joe",
                 style: TextStyle(color: Colors.white),
               ),
-              SizedBox(height: 5),
-              Icon(Icons.watch, color: Colors.white),
+              const SizedBox(height: 5),
+              Row(
+                children: [
+                  const Icon(Icons.watch, color: Colors.white),
+                  const SizedBox(
+                    width: 5,
+                  ),
+                  if (!widget.isWhiteTurn)
+                    Text(
+                      '${remainingTime.inMinutes}:${(remainingTime.inSeconds % 60).toString().padLeft(2, '0')}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                ],
+              ),
             ],
           ),
           const SizedBox(
@@ -686,80 +855,25 @@ class Player2Container extends StatelessWidget {
                 width: 5,
               ),
               Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: const [
-                        BoxShadow(
-                            color: Colors.black45,
-                            offset: Offset(0, 4),
-                            blurRadius: 4)
-                      ],
-                      color: !isWhiteTurn ? Colors.orange : Colors.grey[100]))
-            ],
-          ),
-          const Spacer(),
-          Text(
-            whitePiecesCaptured.length.toString(),
-            style: const TextStyle(color: Colors.white),
-          ),
-          const SizedBox(
-            width: 10,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class Player1Container extends StatelessWidget {
-  const Player1Container({
-    super.key,
-    required this.blackPiecesCaptured,
-  });
-
-  final List<CheckersPiece?> blackPiecesCaptured;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.only(top: 10, bottom: 10),
-      color: Colors.black87,
-      child: Row(
-        children: [
-          const CircleAvatar(
-            backgroundImage: AssetImage("assets/images/avatar.png"),
-            radius: 20,
-          ),
-          const SizedBox(
-            width: 10,
-          ),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Bill",
-                style: TextStyle(color: Colors.white),
-              ),
-              SizedBox(height: 5),
-              Row(
-                children: [
-                  Icon(Icons.watch, color: Colors.white),
-                  SizedBox(
-                    width: 5,
-                  ),
-                  Text(
-                    "0.59",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ],
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black45,
+                      offset: Offset(0, 4),
+                      blurRadius: 4,
+                    )
+                  ],
+                  color: !widget.isWhiteTurn ? Colors.orange : Colors.grey[100],
+                ),
               ),
             ],
           ),
           const Spacer(),
           Text(
-            blackPiecesCaptured.length.toString(),
+            widget.whitePiecesCaptured.length.toString(),
             style: const TextStyle(color: Colors.white),
           ),
           const SizedBox(

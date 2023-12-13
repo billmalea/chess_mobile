@@ -7,6 +7,7 @@ import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../Logics/Checkers/checkersPiece.dart';
 import '../../Models/Source.dart';
+import '../../Utility/SnackMessage.dart';
 
 enum GameType { checkers, chess }
 
@@ -161,18 +162,12 @@ class WebSocketProvider with ChangeNotifier {
 
           notifyListeners();
 
-          ScaffoldMessenger.of(ctx).showSnackBar(
-            const SnackBar(
-                duration: Duration(minutes: 1),
-                content: Text('An Error Occured')),
-          );
+          snackmessage("An Error Occured", ctx);
         },
         onDone: () {
           handleDisconnect();
-          ScaffoldMessenger.of(ctx).showSnackBar(
-            const SnackBar(
-                duration: Duration(minutes: 1), content: Text('Disconnected')),
-          );
+
+          snackmessage("Disconnected", ctx);
         },
         cancelOnError: true,
       );
@@ -206,9 +201,16 @@ class WebSocketProvider with ChangeNotifier {
   }
 
   // Send a message over the WebSocket
-  void sendMessage(dynamic message) {
-    if (_isConnected) {
-      _channel!.sink.add(jsonEncode(message));
+  void sendMessage(dynamic message, BuildContext ctx) {
+    try {
+      if (_isConnected) {
+        _channel!.sink.add(jsonEncode(message));
+      }
+    } on SocketException {
+      snackmessage("No internet connection ", ctx);
+    } catch (e) {
+      print(
+          "____________________********SEND WEBSOCKET MESSAGE ERROR************ ____________-");
     }
   }
 
@@ -254,6 +256,7 @@ class WebSocketProvider with ChangeNotifier {
   // Close the WebSocket connection
   void close() {
     _isConnected = false;
+
     final data = {"action": "disconnect", "gameId": _gameId};
 
     _channel!.sink.add(jsonEncode(data));
@@ -292,6 +295,7 @@ class WebSocketProvider with ChangeNotifier {
   }
 
   void handleRequestStart(Map<String, dynamic> message) async {
+    
     _isWhiteTurn = message["turn"] == PLAYER_ONE_TURN;
 
     _gameId = message["gameId"];
@@ -380,8 +384,8 @@ class WebSocketProvider with ChangeNotifier {
   }
 
   static const REQUEST_START = "START";
-  static const PLAYER_MOVE = "MOVE"; //  player moves
-  static const GAME_OVER_OP = "GAMEOVER"; // game over
+  static const PLAYER_MOVE = "MOVE"; 
+  static const GAME_OVER_OP = "GAMEOVER"; 
   static const PLAYER_ONE_TURN = "0";
   static const PLAYER_TWO_TURN = "1";
   static const PLAYER_WAIT = "WAIT_PLAYER2";

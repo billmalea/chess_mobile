@@ -1,9 +1,11 @@
+import 'package:chekaz/Screens/Wallet/widget/WithdrawPage.dart';
+import 'package:chekaz/Utility/PageRoute.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import '../../Providers/Auth/CognitoAuthProvider.dart';
 import '../../main.dart';
 import '../Login/SignupPage.dart';
+import 'widget/TopupPage.dart';
 
 class WalletPage extends StatelessWidget {
   const WalletPage({super.key});
@@ -85,32 +87,65 @@ class WalletUi extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(7.0),
+                InkWell(
+                  onTap: () {
+                    pagenavigation(
+                        context,
+                        const TopUpPage(
+                          phonenumber: null,
+                        ));
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(
+                        right: 25, left: 25, bottom: 10, top: 20),
+                    height: 40,
+                    width: 100,
+                    decoration: const BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.all(Radius.circular(7)),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Top Up',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
-                  onPressed: () {
-                    // Implement the logic for account top-up
-                  },
-                  child: const Text('Top Up'),
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(7.0),
+                InkWell(
+                  onTap: () {
+                    pagenavigation(
+                        context,
+                        const WithdrawPage(
+                          phonenumber: null,
+                        ));
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(
+                        right: 25, left: 25, bottom: 10, top: 20),
+                    height: 40,
+                    width: 100,
+                    decoration: const BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.all(Radius.circular(7)),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Withdraw',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
-                  onPressed: () {
-                    // Implement the logic for account withdrawal
-                  },
-                  child: const Text('Withdraw'),
                 ),
               ],
             ),
@@ -118,7 +153,6 @@ class WalletUi extends StatelessWidget {
             const Text(
               'Recent Transactions',
             ),
-            // You can create a list view of recent transactions here
             Expanded(
               child: ListView(
                 children: const [

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -24,6 +23,8 @@ class PaymentProvider extends ChangeNotifier {
   }
 
   Future<String?> initiatePayment(String phoneNumber, dynamic amount) async {
+    print(phoneNumber);
+
     final timeStamp = generateTimestamp();
     final password = generatePassword(shortCode, mpesaPassKey, timeStamp);
     final token = await _getAccessToken();
@@ -56,21 +57,27 @@ class PaymentProvider extends ChangeNotifier {
       );
 
       final responseData = json.decode(response.body);
-      final checkoutRequestID = responseData['CheckoutRequestID'];
 
-      return checkoutRequestID;
+      if (response.statusCode != 200) {
+        print(
+            "________________********INITIATE PAY FAILED**********____________$responseData");
+
+        return null;
+      }
+
+      return responseData['CheckoutRequestID'];
     } on SocketException {
       //errortoast('Check Your Internet Connection and Try Again');
       return null;
     } catch (e) {
-      //errortoast(e.toString());
       print('++++++initiate pay error++++++ $e');
       return null;
     }
   }
 
-  Future<dynamic> checkPaymentStatus(String checkoutRequestID) async {
+  Future<String?> checkPaymentStatus(String checkoutRequestID) async {
     final timeStamp = generateTimestamp();
+
     final password = generatePassword(shortCode, mpesaPassKey, timeStamp);
 
     final headers = {
@@ -84,6 +91,7 @@ class PaymentProvider extends ChangeNotifier {
       'Timestamp': timeStamp,
       'CheckoutRequestID': checkoutRequestID,
     };
+
     try {
       final response = await http.post(
         Uri.parse(checkPaymentUrl),
@@ -92,34 +100,55 @@ class PaymentProvider extends ChangeNotifier {
       );
 
       final responseData = json.decode(response.body);
-      final responsecode = responseData['errorCode'].toString();
 
-      if (responsecode == '500.001.1001') {
+      print(
+          "_______________************PAYMENT CHECKKKKK  RESPONSE********_____________$responseData");
+
+      if (response.statusCode != 200) {
         return null;
       }
-      return responseData;
+
+      return responseData["ResultCode"];
     } catch (e) {
-      print(e);
+      print(
+          "_______________************PAYMENT CHECK ERROR********_____________$e");
+
       return null;
     }
   }
 
   Future<String?> _getAccessToken() async {
     try {
+      const url =
+          'https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials';
+
       final headers = {
-        'Authorization':
-            'Basic ${base64.encode(utf8.encode('$mpesaClientKey:$mpesaClientSecret'))}',
+        "Authorization":
+            "Basic ${base64.encode(utf8.encode('$mpesaClientKey:$mpesaClientSecret'))}",
+        'Content-Type': 'application/json'
       };
+      print(
+          "________________********ACCESS_TOKEN_HEADERS**********____________$headers");
+
       final response =
           await http.get(Uri.parse(accessTokenurl), headers: headers);
-      final responseData = json.decode(response.body);
-      final accessToken = responseData['access_token'];
 
-      return accessToken;
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+
+        final accessToken = responseData['access_token'];
+        print(
+            "________________********ACCESS_TOKEN**********____________$responseData");
+        return accessToken;
+      }
+      print(
+          "________________********ACCESS_TOKEN**********____________${response.statusCode}");
+      return null;
     } on SocketException {
-      // errortoast('Check Your Internet Connection and Try Again');
       return null;
     } catch (e) {
+      print(
+          "________________********ACCESS_TOKEN_ERROR**********____________$e");
       return null;
     }
   }
