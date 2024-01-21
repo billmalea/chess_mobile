@@ -159,8 +159,12 @@ class _CheckersFriendlyOnlineState extends State<CheckersFriendlyOnline> {
       var captured =
           Captured(row: capturedRow, col: capturedCol, isWhite: isWhite);
 
-      Provider.of<WebSocketProvider>(context, listen: false)
-          .sendMove(source, destination, captured, isKing);
+      int validMovesWhite = calculateAllValidMoves(true);
+
+      int validMovesBlack = calculateAllValidMoves(false);
+
+      Provider.of<WebSocketProvider>(context, listen: false).sendMove(source,
+          destination, captured, isKing, validMovesWhite, validMovesBlack);
 
       board[selecetedRow][selecetedCol] = null;
       board[newRow][newCol] = selecetedPiece;
@@ -207,9 +211,17 @@ class _CheckersFriendlyOnlineState extends State<CheckersFriendlyOnline> {
             var source = Source(row: selecetedRow, col: selecetedCol);
 
             var destination = Destination(row: newRow, col: newCol);
+            int validMovesWhite = calculateAllValidMoves(true);
 
-            Provider.of<WebSocketProvider>(context, listen: false)
-                .sendMove(source, destination, captured, isKing);
+            int validMovesBlack = calculateAllValidMoves(false);
+
+            Provider.of<WebSocketProvider>(context, listen: false).sendMove(
+                source,
+                destination,
+                captured,
+                isKing,
+                validMovesWhite,
+                validMovesBlack);
           } else {
             // Stop capturing if you encounter your own piece
             break;
@@ -250,8 +262,12 @@ class _CheckersFriendlyOnlineState extends State<CheckersFriendlyOnline> {
 
       var destination = Destination(row: newRow, col: newCol);
 
-      Provider.of<WebSocketProvider>(context, listen: false)
-          .sendMove(source, destination, null, isKing);
+      int validMovesWhite = calculateAllValidMoves(true);
+
+      int validMovesBlack = calculateAllValidMoves(false);
+
+      Provider.of<WebSocketProvider>(context, listen: false).sendMove(
+          source, destination, null, isKing, validMovesWhite, validMovesBlack);
 
       changeTurn();
     }
@@ -334,6 +350,21 @@ class _CheckersFriendlyOnlineState extends State<CheckersFriendlyOnline> {
     }
 
     return captureMoves;
+  }
+
+// This function calculates the total valid moves for a given player (white or black)
+  int calculateAllValidMoves(bool isWhiteTurn) {
+    int validMoveCount = 0;
+    for (int row = 0; row < board.length; row++) {
+      for (int col = 0; col < board[row].length; col++) {
+        if (board[row][col] != null &&
+            board[row][col]!.isWhite == isWhiteTurn) {
+          var validMoves = calculatevalidMoves(row, col, board[row][col]);
+          validMoveCount += validMoves.length;
+        }
+      }
+    }
+    return validMoveCount;
   }
 
   void replay() {

@@ -1,11 +1,15 @@
+// ignore_for_file: constant_identifier_names
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
+import 'package:chekaz/Utility/ToastItems.dart';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../Logics/Checkers/checkersPiece.dart';
+import '../../Models/Player.dart';
 import '../../Models/Source.dart';
 import '../../Utility/SnackMessage.dart';
 
@@ -36,10 +40,12 @@ class WebSocketProvider with ChangeNotifier {
 
   List<CheckersPiece?> get whitePiecesCaptured => _whitePiecesCaptured;
 
+  // ignore: prefer_final_fields
   List<CheckersPiece?> _whitePiecesCaptured = [];
 
   List<CheckersPiece?> get blackPiecesCaptured => _blackPiecesCaptured;
 
+  // ignore: prefer_final_fields
   List<CheckersPiece?> _blackPiecesCaptured = [];
 
   List<List<CheckersPiece?>> get board => _board;
@@ -47,21 +53,21 @@ class WebSocketProvider with ChangeNotifier {
   List<List<CheckersPiece?>> _board = [];
 
   final serverUrl =
-      "wss://z1ljb13ln5.execute-api.us-east-1.amazonaws.com/Prod/";
+      "wss://mx84dv6j1a.execute-api.us-east-1.amazonaws.com/Prod/";
 
-  String get playerId => _playerId;
+  Player? get localPlayer => _localPlayer;
 
-  String get opponentId => _opponentId;
+  Player? get opponent => _opponent;
 
   String get gameId => _gameId;
 
-  String _playerId = "";
+  Player? _localPlayer;
 
   bool _isPlayer1 = false;
 
   String _gameId = "";
 
-  String _opponentId = "";
+  Player? _opponent;
 
   WebSocketChannel? _channel;
 
@@ -95,37 +101,20 @@ class WebSocketProvider with ChangeNotifier {
         return {
           "stake": stake,
           "gametype": game == GameType.checkers ? "checkers" : "chess",
-          "username": user.userId,
-          "userId": user.username
-        };
-      } else if (stake != null && gameId != null) {
-        return {
-          "stake": stake,
-          "gametype": game == GameType.checkers ? "checkers" : "chess",
-          "gameId": gameId,
-          "username": user.userId,
-          "userId": user.username
-        };
-      } else if (gameId != null) {
-        return {
-          "gametype": game == GameType.checkers ? "checkers" : "chess",
-          "gameId": gameId,
-          "username": user.userId,
-          "userId": user.username
+          "username": user.username,
+          "userId": user.userId
         };
       } else {
         return {
           "gametype": game == GameType.checkers ? "checkers" : "chess",
-          "username": user.userId,
-          "userId": user.username
+          "username": user.username,
+          "userId": user.userId,
         };
       }
     }
 
-    final socket =
-        await WebSocket.connect(serverUrl, headers: header()).timeout(
-      const Duration(seconds: 30),
-    );
+    final socket = await WebSocket.connect(serverUrl, headers: header());
+
     return IOWebSocketChannel(socket);
   }
 
@@ -179,10 +168,13 @@ class WebSocketProvider with ChangeNotifier {
       );
     } on SocketException {
       _isLoading = false;
+
       notifyListeners();
+
       ScaffoldMessenger.of(ctx).showSnackBar(
         const SnackBar(
-            content: Text('Check Your  Internet Connection and Try Again')),
+            backgroundColor: Colors.redAccent,
+            content: Text('Check Your Internet Connection and Try Again')),
       );
     } on WebSocketException {
       _isLoading = false;
@@ -214,16 +206,37 @@ class WebSocketProvider with ChangeNotifier {
     }
   }
 
+  void gameOver() {
+    var message = {
+      "action": "notification",
+      "operation": GAME_OVER,
+      "gameId": _gameId,
+      "playerId": localPlayer!.userId,
+    };
+    try {
+      if (_isConnected) {
+        _channel!.sink.add(jsonEncode(message));
+      }
+    } on SocketException {
+      errortoast("NO INTERNET CONNECTION");
+    } catch (e) {
+      print(
+          "____________________********SEND WEBSOCKET MESSAGE ERROR************ ____________-");
+    }
+  }
+
   // Send a message over the WebSocket
-  void sendMove(
-      Source source, Destination destination, Captured? captured, bool isKing) {
+  void sendMove(Source source, Destination destination, Captured? captured,
+      bool isKing, int validmovesp1, int validmovesp2) {
     final data = {
       "action": "notification",
       "operation": PLAYER_MOVE,
       "turn": isWhiteTurn ? PLAYER_ONE_TURN : PLAYER_TWO_TURN,
       "gameId": gameId,
       "isKing": isKing,
-      "opponentId": opponentId,
+      'validmovesp1': validmovesp1,
+      'validmovesp2': validmovesp2,
+      "opponentId": opponent!.userId,
       "move": {
         "source": {"row": source.row, "col": source.col},
         "destination": {"row": destination.row, "col": destination.col}
@@ -248,8 +261,11 @@ class WebSocketProvider with ChangeNotifier {
       "turn": _isWhiteTurn ? PLAYER_TWO_TURN : PLAYER_ONE_TURN,
       "gameId": gameId,
     };
+
     _isWhiteTurn = !_isWhiteTurn;
+
     notifyListeners();
+
     _channel!.sink.add(jsonEncode(data));
   }
 
@@ -257,7 +273,40 @@ class WebSocketProvider with ChangeNotifier {
   void close() {
     _isConnected = false;
 
+    _waitingOpponent = false;
+
+    //
+    _isLoading = false;
+    //
+
     final data = {"action": "disconnect", "gameId": _gameId};
+
+    _channel!.sink.add(jsonEncode(data));
+  }
+
+  void forfeit() async {
+    _isConnected = false;
+
+    _waitingOpponent = false;
+
+    //
+    _isLoading = false;
+    //
+
+    final data = {"action": "notification", "operation": PLAYER_FORFEIT};
+
+    _channel!.sink.add(jsonEncode(data));
+  }
+
+  void timeout() {
+    _isConnected = false;
+
+    _waitingOpponent = false;
+
+    //
+    _isLoading = false;
+    //
+    final data = {"action": "notification", "operation": OPPONENT_TIMEOUT};
 
     _channel!.sink.add(jsonEncode(data));
   }
@@ -289,20 +338,36 @@ class WebSocketProvider with ChangeNotifier {
       case PLAYER_MOVE:
         handleOpponentPlayerMove(message);
         break;
+
+      case FAILURE:
+        handleDisconnect();
+        errortoast("Communication Error");
+      case OPPONENT_TIMEOUT:
+        handleDisconnect();
+        errortoast("Opponent Has Disconnected");
+
+      case PLAYER_FORFEIT:
+        handleDisconnect();
+        errortoast("Opponent Has Forfeited");
       case REPLAY:
       default:
     }
   }
 
   void handleRequestStart(Map<String, dynamic> message) async {
-    
     _isWhiteTurn = message["turn"] == PLAYER_ONE_TURN;
 
     _gameId = message["gameId"];
 
-    _opponentId = message["opponentId"];
+    _opponent = Player(
+        name: message["opponentname"] ?? "UNKWON",
+        userId: message["opponentId"],
+        connectionId: message["opponentId"]);
 
-    _playerId = message["yourId"];
+    _localPlayer = _opponent = Player(
+        name: message["opponentId"],
+        userId: message["yourId"],
+        connectionId: message["yourId"]);
 
     _isPlayer1 = message["isWhite"];
 
@@ -347,7 +412,9 @@ class WebSocketProvider with ChangeNotifier {
 
     // Get the moving piece from the source position
     CheckersPiece? movingPiece = _board[sourceRow][sourceCol];
+
     _board[sourceRow][sourceCol] = null;
+
     _board[destRow][destCol] = movingPiece;
 
     if (isKing) {
@@ -365,12 +432,16 @@ class WebSocketProvider with ChangeNotifier {
 
       _board[capturedrow][capturedcol] = null;
 
-      if (!isWhite) {
-        _whitePiecesCaptured.add(
-            CheckersPiece(type: CheckersPieceType.normal, isWhite: isWhite));
-      } else {
-        _blackPiecesCaptured.add(
-            CheckersPiece(type: CheckersPieceType.normal, isWhite: !isWhite));
+      if (isWhite) {
+        var piece =
+            CheckersPiece(type: CheckersPieceType.normal, isWhite: isWhite);
+
+        _whitePiecesCaptured.add(piece);
+      } else if (!isWhite) {
+        var piece =
+            CheckersPiece(type: CheckersPieceType.normal, isWhite: isWhite);
+
+        _blackPiecesCaptured.add(piece);
       }
     }
     notifyListeners();
@@ -384,11 +455,14 @@ class WebSocketProvider with ChangeNotifier {
   }
 
   static const REQUEST_START = "START";
-  static const PLAYER_MOVE = "MOVE"; 
-  static const GAME_OVER_OP = "GAMEOVER"; 
+  static const PLAYER_MOVE = "MOVE";
+  static const GAME_OVER = "GAMEOVER";
   static const PLAYER_ONE_TURN = "0";
   static const PLAYER_TWO_TURN = "1";
   static const PLAYER_WAIT = "WAIT_PLAYER2";
   static const CHANGE_TURN = "TURN";
   static const REPLAY = "REPLAY";
+  static const FAILURE = "SYSTEM_FAILURE";
+  static const OPPONENT_TIMEOUT = "TIMEOUT";
+  static const PLAYER_FORFEIT = "FORFEIT";
 }

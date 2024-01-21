@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
+import 'package:chekaz/Utility/ToastItems.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -27,12 +28,20 @@ class CognitoAuthProvider extends ChangeNotifier {
 
   AuthUser? get user => _user;
 
-  currentuser() async {
-    AuthUser currentUser = await Amplify.Auth.getCurrentUser();
+  currentuser(BuildContext ctx) async {
+    try {
+      AuthUser currentUser = await Amplify.Auth.getCurrentUser();
 
-    _user = currentUser;
+      _user = currentUser;
 
-    notifyListeners();
+      notifyListeners();
+    } on SignedOutException {
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        const SnackBar(content: Text('Connection timed out.Please Try again.')),
+      );
+    } catch (e) {
+      print(e);
+    }
   }
 
   Future<bool> autologin(String username, String password) async {
@@ -50,7 +59,9 @@ class CognitoAuthProvider extends ChangeNotifier {
         username: username,
         password: password,
       );
+
       _confirmUsername = username;
+
       _confirmpassword = password;
       notifyListeners();
 
@@ -104,6 +115,7 @@ class CognitoAuthProvider extends ChangeNotifier {
     } on UsernameExistsException {
       safePrint('Error signing up user: USERNAME EXISTS');
     } on AuthException catch (e) {
+      errortoast(e.message);
       safePrint('Error signing up user**************: ${e.message}');
     }
   }
@@ -187,7 +199,7 @@ class CognitoAuthProvider extends ChangeNotifier {
 
         break;
       case AuthSignInStep.done:
-        await currentuser();
+        await currentuser(context);
         // ignore: use_build_context_synchronously
         pagenavigationreplace(context, route);
         break;
@@ -235,14 +247,14 @@ class CognitoAuthProvider extends ChangeNotifier {
       options: const SignOutOptions(globalSignOut: true),
     );
     if (result is CognitoCompleteSignOut) {
+      _user = null;
+
+      notifyListeners();
       safePrint('Sign out completed successfully');
       return true;
     } else if (result is CognitoPartialSignOut) {
       final globalSignOutException = result.globalSignOutException!;
 
-      final accessToken = globalSignOutException.accessToken;
-      // Retry the global sign out using the access token, if desired
-      // ...
       safePrint('Error signing user out: ${globalSignOutException.message}');
     } else if (result is CognitoFailedSignOut) {
       safePrint('Error signing user out: ${result.exception.message}');

@@ -6,31 +6,72 @@ import 'package:provider/provider.dart';
 import '../../Providers/Auth/CognitoAuthProvider.dart';
 import 'widgets/GameOptionsDialog.dart';
 
-class Home extends StatelessWidget {
+class Home extends StatefulWidget {
   const Home({super.key});
+
+  @override
+  State<Home> createState() => _HomeState();
+}
+
+class _HomeState extends State<Home> {
+  var isloading = false;
 
   @override
   Widget build(BuildContext context) {
     var autheniticated = Provider.of<CognitoAuthProvider>(context).isSignedIn;
     return Padding(
       padding: const EdgeInsets.only(top: 70),
-      child: GridView.count(
-        crossAxisCount: 2,
-        padding: const EdgeInsets.all(16),
-        mainAxisSpacing: 20,
-        crossAxisSpacing: 20,
-        children: <Widget>[
-          GameItem(
-            title: 'Checkers',
-            onTap: () {
-              _showGameOptions(context, 'Checkers', autheniticated);
-            },
+      child: Column(
+        children: [
+          Expanded(
+            flex: 2,
+            child: GridView.count(
+              crossAxisCount: 2,
+              padding: const EdgeInsets.all(16),
+              mainAxisSpacing: 20,
+              crossAxisSpacing: 20,
+              children: <Widget>[
+                GameItem(
+                  title: 'Checkers',
+                  onTap: () {
+                    _showGameOptions(context, 'Checkers', autheniticated);
+                  },
+                ),
+                GameItem(
+                  title: 'Chess',
+                  onTap: () {
+                    _showGameOptions(context, 'Chess', autheniticated);
+                  },
+                ),
+              ],
+            ),
           ),
-          GameItem(
-            title: 'Chess',
-            onTap: () {
-              _showGameOptions(context, 'Chess', autheniticated);
+          isloading
+              ? const SizedBox(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1,
+                  ),
+                )
+              : const SizedBox(),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(7.0),
+              ),
+            ),
+            onPressed: () {
+              setState(() {
+                isloading = true;
+              });
+              Provider.of<CognitoAuthProvider>(context, listen: false)
+                  .signOutGlobally()
+                  .then((value) {
+                setState(() {
+                  isloading = false;
+                });
+              });
             },
+            child: const Text('LogOut'),
           ),
         ],
       ),

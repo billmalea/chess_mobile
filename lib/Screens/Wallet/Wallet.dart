@@ -52,6 +52,35 @@ class WalletPage extends StatelessWidget {
                   ),
                 ),
               ),
+              const Text("Or"),
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => SignupPage(route: HomePage())),
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(
+                      right: 25, left: 25, bottom: 10, top: 20),
+                  height: 40,
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.all(Radius.circular(7)),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'Login',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           );
   }

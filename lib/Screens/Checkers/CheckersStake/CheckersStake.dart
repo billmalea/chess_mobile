@@ -1,11 +1,11 @@
 import 'dart:async';
-
 import 'package:chekaz/Logics/Checkers/checkersPiece.dart';
 import 'package:chekaz/Models/Source.dart';
 import 'package:chekaz/Providers/Auth/CognitoAuthProvider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../Logics/Chess/chess.dart';
+import '../../../Models/Player.dart';
 import '../../../Providers/Websocket/WebsocketProvider.dart';
 import '../../../Utility/colors.dart';
 import '../components/CheckersSquare.dart';
@@ -30,7 +30,6 @@ class _CheckersStakeState extends State<CheckersStake> {
   List<List<int>> validMoves = [];
 
   bool checkStatus = false;
-
   void pieceSelected(int row, int col, bool hasMandatoryCapture,
       bool isWhiteTurn, bool isLocalPlayerTurn) {
     setState(() {
@@ -62,11 +61,11 @@ class _CheckersStakeState extends State<CheckersStake> {
         int lastRow = selecetedPiece!.isWhite ? 0 : 7;
         if (row == lastRow) {
           if (!hasMandatoryCapture) {
-            movePiece(row, col, true, selecetedPiece!.isWhite);
+            movePiece(row, col, true, selecetedPiece!.isWhite, isWhiteTurn);
           }
         } else {
           if (!hasMandatoryCapture) {
-            movePiece(row, col, false, selecetedPiece!.isWhite);
+            movePiece(row, col, false, selecetedPiece!.isWhite, isWhiteTurn);
           }
         }
       }
@@ -74,6 +73,43 @@ class _CheckersStakeState extends State<CheckersStake> {
       validMoves =
           calculatevalidMoves(selecetedRow, selecetedCol, selecetedPiece);
     });
+
+    if (isGameOver(isWhiteTurn)) {
+      // Handle game over scenario
+      handleGameOver();
+    } else {
+      // Change turn if the game is not over
+      changeTurn();
+    }
+  }
+
+  bool isGameOver(bool isWhiteTurn) {
+    bool whiteHasPieces =
+        board.any((row) => row.any((piece) => piece?.isWhite == true));
+    bool blackHasPieces =
+        board.any((row) => row.any((piece) => piece?.isWhite == false));
+    if (!whiteHasPieces || !blackHasPieces) {
+      return true; // One of the players has no pieces left
+    }
+
+    for (int row = 0; row < board.length; row++) {
+      for (int col = 0; col < board[row].length; col++) {
+        if (board[row][col] != null &&
+            board[row][col]!.isWhite == isWhiteTurn) {
+          var pieceValidMoves = calculatevalidMoves(row, col, board[row][col]);
+          if (pieceValidMoves.isNotEmpty) {
+            return false; // Player has valid moves
+          }
+        }
+      }
+    }
+    return true; // No valid moves, game is over
+  }
+
+  void handleGameOver() {
+    print("GAME OVER=================");
+
+    Provider.of<WebSocketProvider>(context, listen: false).gameOver();
   }
 
   List<List<int>> calculatevalidMoves(int row, int col, CheckersPiece? piece) {
@@ -148,17 +184,35 @@ class _CheckersStakeState extends State<CheckersStake> {
     return possibleMoves;
   }
 
-  void movePiece(int newRow, int newCol, bool isKing, bool isWhite) {
+  bool hasValidMoves(bool isWhiteTurn) {
+    for (int row = 0; row < board.length; row++) {
+      for (int col = 0; col < board[row].length; col++) {
+        if (board[row][col] != null &&
+            board[row][col]!.isWhite == isWhiteTurn) {
+          var validMoves = calculatevalidMoves(row, col, board[row][col]);
+          if (validMoves.isNotEmpty) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  void movePiece(
+      int newRow, int newCol, bool isKing, bool isWhite, bool isWhiteTurn) {
     //remove the piece jumped if any from the board
 
     // Calculate the row and column difference
     int rowDiff = newRow - selecetedRow;
+
     int colDiff = newCol - selecetedCol;
 
     // Check if the move is a   normal capture move then check for more captures
     if (rowDiff.abs() == 2 && colDiff.abs() == 2) {
       // Capture move - remove the captured piece
       int capturedRow = (newRow + selecetedRow) ~/ 2;
+
       int capturedCol = (newCol + selecetedCol) ~/ 2;
 
       var source = Source(row: selecetedRow, col: selecetedCol);
@@ -168,8 +222,12 @@ class _CheckersStakeState extends State<CheckersStake> {
       var captured =
           Captured(row: capturedRow, col: capturedCol, isWhite: isWhite);
 
-      Provider.of<WebSocketProvider>(context, listen: false)
-          .sendMove(source, destination, captured, isKing);
+      int validMovesWhite = calculateAllValidMoves(true);
+
+      int validMovesBlack = calculateAllValidMoves(false);
+
+      Provider.of<WebSocketProvider>(context, listen: false).sendMove(source,
+          destination, captured, isKing, validMovesWhite, validMovesBlack);
 
       board[selecetedRow][selecetedCol] = null;
       board[newRow][newCol] = selecetedPiece;
@@ -210,6 +268,7 @@ class _CheckersStakeState extends State<CheckersStake> {
               selecetedPiece!.isWhite) {
             var captured =
                 Captured(row: capturedRow, col: capturedCol, isWhite: isWhite);
+
             // Remove the captured opponent's piece
             board[capturedRow][capturedCol] = null;
 
@@ -217,8 +276,17 @@ class _CheckersStakeState extends State<CheckersStake> {
 
             var destination = Destination(row: newRow, col: newCol);
 
-            Provider.of<WebSocketProvider>(context, listen: false)
-                .sendMove(source, destination, captured, isKing);
+            int validMovesWhite = calculateAllValidMoves(true);
+
+            int validMovesBlack = calculateAllValidMoves(false);
+
+            Provider.of<WebSocketProvider>(context, listen: false).sendMove(
+                source,
+                destination,
+                captured,
+                isKing,
+                validMovesWhite,
+                validMovesBlack);
           } else {
             // Stop capturing if you encounter your own piece
             break;
@@ -242,7 +310,12 @@ class _CheckersStakeState extends State<CheckersStake> {
         selecetedCol = newCol;
         validMoves = additionalMoves;
       } else {
-        changeTurn();
+        if (isGameOver(isWhiteTurn)) {
+          //Handle game over senario
+        } else {
+          // Change turn
+          changeTurn();
+        }
       }
     }
     // normal move
@@ -252,15 +325,21 @@ class _CheckersStakeState extends State<CheckersStake> {
       makeKing(isKing);
 
       // Update the piece's row and column
+
       board[newRow][newCol] = selecetedPiece;
+
       board[selecetedRow][selecetedCol] = null;
 
       var source = Source(row: selecetedRow, col: selecetedCol);
 
       var destination = Destination(row: newRow, col: newCol);
 
-      Provider.of<WebSocketProvider>(context, listen: false)
-          .sendMove(source, destination, null, isKing);
+      int validMovesWhite = calculateAllValidMoves(true);
+
+      int validMovesBlack = calculateAllValidMoves(false);
+
+      Provider.of<WebSocketProvider>(context, listen: false).sendMove(
+          source, destination, null, isKing, validMovesWhite, validMovesBlack);
 
       changeTurn();
     }
@@ -345,6 +424,21 @@ class _CheckersStakeState extends State<CheckersStake> {
     return captureMoves;
   }
 
+// This function calculates the total valid moves for a given player (white or black)
+  int calculateAllValidMoves(bool isWhiteTurn) {
+    int validMoveCount = 0;
+    for (int row = 0; row < board.length; row++) {
+      for (int col = 0; col < board[row].length; col++) {
+        if (board[row][col] != null &&
+            board[row][col]!.isWhite == isWhiteTurn) {
+          var validMoves = calculatevalidMoves(row, col, board[row][col]);
+          validMoveCount += validMoves.length;
+        }
+      }
+    }
+    return validMoveCount;
+  }
+
   void replay() {
     Navigator.of(context).pop();
     // _initializeBoard();
@@ -413,6 +507,10 @@ class _CheckersStakeState extends State<CheckersStake> {
 
     var isPlayer1 = Provider.of<WebSocketProvider>(context).isPlayer1;
 
+    var localPlayer = Provider.of<WebSocketProvider>(context).localPlayer;
+
+    var opponent = Provider.of<WebSocketProvider>(context).opponent;
+
     var blackPiecesCaptured =
         Provider.of<WebSocketProvider>(context).blackPiecesCaptured;
 
@@ -424,145 +522,187 @@ class _CheckersStakeState extends State<CheckersStake> {
     var waitingP2 = Provider.of<WebSocketProvider>(context).waitingOpponent;
 
     var connected = Provider.of<WebSocketProvider>(context).isConnected;
+    bool isLocallPlayer() {
+      if (isPlayer1 && isWhiteTurn) {
+        return true;
+      } else if (!isPlayer1 && !isWhiteTurn) {
+        return true;
+      }
 
-    return Scaffold(
-        backgroundColor: foregroundColor,
-        body: isSignedIn == false
-            ? const Center(
-                child: Text("Create An Account To Play Staked Games"),
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(
-                    height: 50,
-                  ),
-                  waitingP2
-                      ? Center(
-                          child: Column(
-                            children: [
-                              SizedBox(
-                                  height: 70,
-                                  width: 80,
-                                  child:
-                                      Image.asset("assets/images/loader.gif")),
-                              const SizedBox(
-                                height: 10,
-                              ),
-                              const Text("Waiting For Opponent")
-                            ],
-                          ),
-                        )
-                      : const SizedBox(),
-                  loading && !connected && !waitingP2
-                      ? const Center(
-                          child: Column(
-                            children: [
-                              CircularProgressIndicator(strokeWidth: 1),
-                              SizedBox(
-                                height: 10,
-                              ),
-                              Text('Establishing Connection..'),
-                            ],
-                          ),
-                        )
-                      : const SizedBox(),
-                  !connected && !loading && !waitingP2
-                      ? const Center(
-                          child: Text('Select A Stake to Create Game Session '))
-                      : const SizedBox(),
-                  !connected && !loading && !waitingP2
-                      ? Center(child: _buildStakeSelection())
-                      : const SizedBox(),
-                  connected && !loading && !waitingP2
-                      ? Column(
-                          children: [
-                            Player2Container(
-                                isWhiteTurn: isWhiteTurn,
-                                whitePiecesCaptured: whitePiecesCaptured),
-                            SizedBox(
-                              width: double.infinity,
-                              child: Transform.rotate(
-                                angle: isPlayer1 ? 0 : 3.14159,
-                                child: GridView.builder(
-                                    shrinkWrap: true,
-                                    itemCount: 8 * 8,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    gridDelegate:
-                                        const SliverGridDelegateWithFixedCrossAxisCount(
-                                            crossAxisCount: 8),
-                                    itemBuilder: (ctx, index) {
-                                      int row = index ~/ 8;
-                                      int col = index % 8;
-                                      // check if square is selected
-                                      bool isSelected = selecetedRow == row &&
-                                          selecetedCol == col;
+      return false;
+    }
 
-                                      // check valid move
-                                      bool validMove = false;
+    Future<bool> onWillPop() async {
+      return (await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Exit Game'),
+              content: const Text(
+                  'Are you sure you want to exit the game? Your progress will be lost.'),
+              actions: <Widget>[
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context)
+                      .pop(false), // Dismiss the dialog and stay on the page
+                  child: const Text('No'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    // send disconnect event
+                    Provider.of<WebSocketProvider>(context, listen: false)
+                        .forfeit();
+                    //
+                    Navigator.of(context).pop(true);
+                  }, // Close the dialog and exit the page
+                  child: const Text('Yes'),
+                ),
+              ],
+            ),
+          )) ??
+          false; // If the user dismisses the dialog by tapping outside of it, stay on the page
+    }
 
-                                      for (var position in validMoves) {
-                                        if (position[0] == row &&
-                                            position[1] == col) {
-                                          validMove = true;
-                                        }
-                                      }
-
-                                      bool isLocallPlayer() {
-                                        if (isPlayer1 && isWhiteTurn) {
-                                          return true;
-                                        } else if (!isPlayer1 && !isWhiteTurn) {
-                                          return true;
-                                        }
-
-                                        return false;
-                                      }
-
-                                      bool? hasMandatoryCapture =
-                                          hasMandatoryCaptureForPiece(
-                                              row, col, board, isWhiteTurn);
-
-                                      return CheckerSquare(
-                                        isSelected: isSelected,
-                                        isValidMove: validMove,
-                                        isWhite: isWhite(index),
-                                        piece: board[row][col],
-                                        onTap: () {
-                                          pieceSelected(
-                                              row,
-                                              col,
-                                              hasMandatoryCapture ?? false,
-                                              isWhiteTurn,
-                                              isLocallPlayer());
-                                        },
-                                        hasMandatoryCapture:
-                                            hasMandatoryCapture ?? false,
-                                        isLocalPlayer: isLocallPlayer(),
-                                      );
-                                    }),
-                              ),
+    return WillPopScope(
+      onWillPop: connected && !loading && !waitingP2 ? onWillPop : null,
+      child: Scaffold(
+          backgroundColor: foregroundColor,
+          body: isSignedIn == false
+              ? const Center(
+                  child: Text("Create An Account To Play Staked Games"),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      height: 50,
+                    ),
+                    waitingP2
+                        ? Center(
+                            child: Column(
+                              children: [
+                                SizedBox(
+                                    height: 70,
+                                    width: 80,
+                                    child: Image.asset(
+                                        "assets/images/loader.gif")),
+                                const SizedBox(
+                                  height: 10,
+                                ),
+                                const Text("Waiting For Opponent")
+                              ],
                             ),
-                            Player1Container(
-                              blackPiecesCaptured: blackPiecesCaptured,
-                              isWhiteTurn: isWhiteTurn,
+                          )
+                        : const SizedBox(),
+                    loading && !connected && !waitingP2
+                        ? const Center(
+                            child: Column(
+                              children: [
+                                CircularProgressIndicator(strokeWidth: 1),
+                                SizedBox(
+                                  height: 10,
+                                ),
+                                Text('Establishing Connection..'),
+                              ],
                             ),
-                          ],
-                        )
-                      : const SizedBox(),
-                ],
-              ));
+                          )
+                        : const SizedBox(),
+                    !connected && !loading && !waitingP2
+                        ? const Center(
+                            child:
+                                Text('Select A Stake to Create Game Session '))
+                        : const SizedBox(),
+                    !connected && !loading && !waitingP2
+                        ? Center(child: _buildStakeSelection())
+                        : const SizedBox(),
+                    connected && !loading && !waitingP2
+                        ? Column(
+                            children: [
+                              isPlayer1
+                                  ? Player2Container(
+                                      player: opponent!,
+                                      isWhiteTurn: isWhiteTurn,
+                                      whitePiecesCaptured: whitePiecesCaptured)
+                                  : Player1Container(
+                                      player: opponent!,
+                                      isWhiteTurn: isWhiteTurn,
+                                      blackPiecesCaptured: whitePiecesCaptured),
+                              SizedBox(
+                                width: double.infinity,
+                                child: Transform.rotate(
+                                  angle: isPlayer1 ? 0 : 3.14159,
+                                  child: Column(
+                                    children: [
+                                      GridView.builder(
+                                          shrinkWrap: true,
+                                          itemCount: 8 * 8,
+                                          physics:
+                                              const NeverScrollableScrollPhysics(),
+                                          gridDelegate:
+                                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                                  crossAxisCount: 8),
+                                          itemBuilder: (ctx, index) {
+                                            int row = index ~/ 8;
+                                            int col = index % 8;
+                                            // check if square is selected
+                                            bool isSelected =
+                                                selecetedRow == row &&
+                                                    selecetedCol == col;
+
+                                            // check valid move
+                                            bool validMove = false;
+
+                                            for (var position in validMoves) {
+                                              if (position[0] == row &&
+                                                  position[1] == col) {
+                                                validMove = true;
+                                              }
+                                            }
+
+                                            bool? hasMandatoryCapture =
+                                                hasMandatoryCaptureForPiece(row,
+                                                    col, board, isWhiteTurn);
+
+                                            return CheckerSquare(
+                                              isSelected: isSelected,
+                                              isValidMove: validMove,
+                                              isWhite: isWhite(index),
+                                              piece: board[row][col],
+                                              onTap: () {
+                                                pieceSelected(
+                                                  row,
+                                                  col,
+                                                  hasMandatoryCapture ?? false,
+                                                  isWhiteTurn,
+                                                  isLocallPlayer(),
+                                                );
+                                              },
+                                              hasMandatoryCapture:
+                                                  hasMandatoryCapture ?? false,
+                                              isLocalPlayer: isLocallPlayer(),
+                                            );
+                                          }),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              isPlayer1
+                                  ? Player1Container(
+                                      blackPiecesCaptured: blackPiecesCaptured,
+                                      isWhiteTurn: isWhiteTurn,
+                                      player: localPlayer!,
+                                    )
+                                  : Player2Container(
+                                      whitePiecesCaptured: whitePiecesCaptured,
+                                      isWhiteTurn: isWhiteTurn,
+                                      player: localPlayer!,
+                                    ),
+                            ],
+                          )
+                        : const SizedBox(),
+                  ],
+                )),
+    );
   }
-
-  static const REQUEST_START = "START";
-  static const PLAYER_MOVE = "MOVE"; //  player moves
-  static const PLAYER_CAPTURE = "CAPTURE"; // New opcode for capturing pieces
-  static const GAME_OVER_OP = "GAMEOVER"; // game over
-  static const PLAYER_ONE_TURN = "0";
-  static const PLAYER_TWO_TURN = "1";
-  static const PLAYER_WAIT = "WAIT PLAYER2";
-  static const CHANGE_TURN = "TURN";
 
   Widget _buildStakeSelection() {
     List<int> availableStakes = [
@@ -607,7 +747,7 @@ class _CheckersStakeState extends State<CheckersStake> {
       height: 80,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(7),
-        color: Colors.blue,
+        color: Colors.black87,
       ),
       child: TextButton(
         onPressed: () {
@@ -650,12 +790,15 @@ class _CheckersStakeState extends State<CheckersStake> {
 
 class Player1Container extends StatefulWidget {
   const Player1Container(
-      {Key? key, required this.blackPiecesCaptured, required this.isWhiteTurn})
+      {Key? key,
+      required this.blackPiecesCaptured,
+      required this.player,
+      required this.isWhiteTurn})
       : super(key: key);
 
   final List<CheckersPiece?> blackPiecesCaptured;
   final bool isWhiteTurn;
-
+  final Player player;
   @override
   _Player1ContainerState createState() => _Player1ContainerState();
 }
@@ -717,9 +860,9 @@ class _Player1ContainerState extends State<Player1Container> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "Bill",
-                style: TextStyle(color: Colors.white),
+              Text(
+                widget.player.name,
+                style: const TextStyle(color: Colors.white),
               ),
               const SizedBox(height: 5),
               Row(
@@ -755,12 +898,13 @@ class Player2Container extends StatefulWidget {
   const Player2Container({
     Key? key,
     required this.isWhiteTurn,
+    required this.player,
     required this.whitePiecesCaptured,
   }) : super(key: key);
 
   final bool isWhiteTurn;
   final List<CheckersPiece?> whitePiecesCaptured;
-
+  final Player player;
   @override
   _Player2ContainerState createState() => _Player2ContainerState();
 }
@@ -822,9 +966,9 @@ class _Player2ContainerState extends State<Player2Container> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "Joe",
-                style: TextStyle(color: Colors.white),
+              Text(
+                widget.player.name,
+                style: const TextStyle(color: Colors.white),
               ),
               const SizedBox(height: 5),
               Row(

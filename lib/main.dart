@@ -86,7 +86,7 @@ class _MyAppState extends State<MyApp> {
           .isLoggedIn(context);
       // ignore: use_build_context_synchronously
       await Provider.of<CognitoAuthProvider>(context, listen: false)
-          .currentuser();
+          .currentuser(context);
     });
   }
 
@@ -101,7 +101,7 @@ class _MyAppState extends State<MyApp> {
             color: Colors.black87,
             centerTitle: true,
             titleTextStyle: TextStyle(color: Colors.white)),
-        primarySwatch: Colors.amber,
+        primarySwatch: Colors.deepPurple,
         primaryColor: Colors.black87,
         useMaterial3: false,
       ),
