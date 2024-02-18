@@ -256,6 +256,7 @@ class _CheckersFriendlyOnlineState extends State<CheckersFriendlyOnline> {
 
       // Update the piece's row and column
       board[newRow][newCol] = selecetedPiece;
+      //
       board[selecetedRow][selecetedCol] = null;
 
       var source = Source(row: selecetedRow, col: selecetedCol);
@@ -286,6 +287,7 @@ class _CheckersFriendlyOnlineState extends State<CheckersFriendlyOnline> {
   void changeTurn() {
     selecetedPiece = null;
     selecetedRow = -1;
+
     selecetedCol = -1;
     validMoves = [];
 

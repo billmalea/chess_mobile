@@ -53,7 +53,7 @@ class WebSocketProvider with ChangeNotifier {
   List<List<CheckersPiece?>> _board = [];
 
   final serverUrl =
-      "wss://mx84dv6j1a.execute-api.us-east-1.amazonaws.com/Prod/";
+      "wss://g949k5g1fc.execute-api.us-east-1.amazonaws.com/Prod/";
 
   Player? get localPlayer => _localPlayer;
 
@@ -86,11 +86,6 @@ class WebSocketProvider with ChangeNotifier {
   bool _isLoading = false;
 
   bool _isWhiteTurn = false;
-
-  final StreamController<dynamic> _messageStreamController =
-      StreamController<dynamic>.broadcast();
-
-  Stream<dynamic> get messageStream => _messageStreamController.stream;
 
   bool get isConnected => _isConnected;
 
@@ -139,7 +134,6 @@ class WebSocketProvider with ChangeNotifier {
         (message) {
           print(message);
           handleWebsocketmessage(message);
-          _messageStreamController.add(message);
           notifyListeners();
         },
         onError: (e) {
@@ -154,7 +148,7 @@ class WebSocketProvider with ChangeNotifier {
           snackmessage("An Error Occured", ctx);
         },
         onDone: () {
-          handleDisconnect();
+          handleDisconnect(null);
 
           snackmessage("Disconnected", ctx);
         },
@@ -269,21 +263,6 @@ class WebSocketProvider with ChangeNotifier {
     _channel!.sink.add(jsonEncode(data));
   }
 
-  // Close the WebSocket connection
-  void close() {
-    _isConnected = false;
-
-    _waitingOpponent = false;
-
-    //
-    _isLoading = false;
-    //
-
-    final data = {"action": "disconnect", "gameId": _gameId};
-
-    _channel!.sink.add(jsonEncode(data));
-  }
-
   void forfeit() async {
     _isConnected = false;
 
@@ -298,21 +277,31 @@ class WebSocketProvider with ChangeNotifier {
     _channel!.sink.add(jsonEncode(data));
   }
 
-  void timeout() {
-    _isConnected = false;
+  // void timeout() {
+  //   _isConnected = false;
 
-    _waitingOpponent = false;
+  //   _waitingOpponent = false;
 
-    //
-    _isLoading = false;
-    //
-    final data = {"action": "notification", "operation": OPPONENT_TIMEOUT};
+  //   //
+  //   _isLoading = false;
+  //   //
+  //   final data = {"action": "notification", "operation": OPPONENT_TIMEOUT};
 
-    _channel!.sink.add(jsonEncode(data));
-  }
+  //   _channel!.sink.add(jsonEncode(data));
+  // }
 
   handleWebsocketmessage(dynamic data) {
     var message = jsonDecode(data);
+
+    if (message["message"] == "Internal server error") {
+      _isConnected = false;
+
+      _isLoading = false;
+
+      errortoast("A Websocket Error Occured.");
+
+      return;
+    }
 
     switch (message['operation']) {
       case PLAYER_WAIT:
@@ -338,16 +327,14 @@ class WebSocketProvider with ChangeNotifier {
       case PLAYER_MOVE:
         handleOpponentPlayerMove(message);
         break;
-
       case FAILURE:
-        handleDisconnect();
+        handleDisconnect(null);
         errortoast("Communication Error");
       case OPPONENT_TIMEOUT:
-        handleDisconnect();
+        handleDisconnect(null);
         errortoast("Opponent Has Disconnected");
-
       case PLAYER_FORFEIT:
-        handleDisconnect();
+        handleDisconnect(null);
         errortoast("Opponent Has Forfeited");
       case REPLAY:
       default:
@@ -365,7 +352,7 @@ class WebSocketProvider with ChangeNotifier {
         connectionId: message["opponentId"]);
 
     _localPlayer = _opponent = Player(
-        name: message["opponentId"],
+        name: message["yourId"],
         userId: message["yourId"],
         connectionId: message["yourId"]);
 
@@ -447,10 +434,11 @@ class WebSocketProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void handleDisconnect() {
+  void handleDisconnect(int? closeCode) {
     _waitingOpponent = false;
     _isConnected = false;
     _isLoading = false;
+    _channel!.sink.close(closeCode, "Disconnection");
     notifyListeners();
   }
 

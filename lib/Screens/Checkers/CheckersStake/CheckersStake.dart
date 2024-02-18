@@ -30,13 +30,16 @@ class _CheckersStakeState extends State<CheckersStake> {
   List<List<int>> validMoves = [];
 
   bool checkStatus = false;
+  //
   void pieceSelected(int row, int col, bool hasMandatoryCapture,
       bool isWhiteTurn, bool isLocalPlayerTurn) {
     setState(() {
       if (!isLocalPlayerTurn) {
+        print("=======NOT LOCAL PLAYER TURN");
         return;
       }
 
+      print("=======LOCAL PLAYER TURN=======");
       //No piece has been selected yet this is the first selection
       if (selecetedPiece == null && board[row][col] != null) {
         if (board[row][col]!.isWhite == isWhiteTurn) {
@@ -73,14 +76,6 @@ class _CheckersStakeState extends State<CheckersStake> {
       validMoves =
           calculatevalidMoves(selecetedRow, selecetedCol, selecetedPiece);
     });
-
-    if (isGameOver(isWhiteTurn)) {
-      // Handle game over scenario
-      handleGameOver();
-    } else {
-      // Change turn if the game is not over
-      changeTurn();
-    }
   }
 
   bool isGameOver(bool isWhiteTurn) {
@@ -223,9 +218,9 @@ class _CheckersStakeState extends State<CheckersStake> {
           Captured(row: capturedRow, col: capturedCol, isWhite: isWhite);
 
       int validMovesWhite = calculateAllValidMoves(true);
-
+      print("Valid white moves*************** $validMovesWhite");
       int validMovesBlack = calculateAllValidMoves(false);
-
+      print("Valid Black moves*************** $validMovesBlack");
       Provider.of<WebSocketProvider>(context, listen: false).sendMove(source,
           destination, captured, isKing, validMovesWhite, validMovesBlack);
 
@@ -310,12 +305,8 @@ class _CheckersStakeState extends State<CheckersStake> {
         selecetedCol = newCol;
         validMoves = additionalMoves;
       } else {
-        if (isGameOver(isWhiteTurn)) {
-          //Handle game over senario
-        } else {
-          // Change turn
-          changeTurn();
-        }
+        //
+        changeTurn();
       }
     }
     // normal move
@@ -459,7 +450,7 @@ class _CheckersStakeState extends State<CheckersStake> {
     super.didChangeDependencies();
 
     // Use a Future-based approach to wait for the board initialization
-    Future.delayed(Duration.zero, () {
+    Future.delayed(const Duration(seconds: 1), () {
       var newBoard =
           Provider.of<WebSocketProvider>(context, listen: false).board;
 
@@ -472,7 +463,9 @@ class _CheckersStakeState extends State<CheckersStake> {
   @override
   void dispose() {
     super.dispose();
-    Provider.of<WebSocketProvider>(context, listen: false).close();
+
+    Provider.of<WebSocketProvider>(context, listen: false)
+        .handleDisconnect(null);
   }
 
   CheckersPiece? selecetedPiece;
@@ -522,6 +515,7 @@ class _CheckersStakeState extends State<CheckersStake> {
     var waitingP2 = Provider.of<WebSocketProvider>(context).waitingOpponent;
 
     var connected = Provider.of<WebSocketProvider>(context).isConnected;
+
     bool isLocallPlayer() {
       if (isPlayer1 && isWhiteTurn) {
         return true;
