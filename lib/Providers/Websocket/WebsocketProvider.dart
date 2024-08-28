@@ -53,7 +53,7 @@ class WebSocketProvider with ChangeNotifier {
   List<List<CheckersPiece?>> _board = [];
 
   final serverUrl =
-      "wss://g949k5g1fc.execute-api.us-east-1.amazonaws.com/Prod/";
+      "wss://6xc2icjzda.execute-api.us-east-1.amazonaws.com/Prod/";
 
   Player? get localPlayer => _localPlayer;
 
@@ -132,7 +132,7 @@ class WebSocketProvider with ChangeNotifier {
 
       _channel!.stream.listen(
         (message) {
-          print(message);
+          print("Gamesosket ---------------$message");
           handleWebsocketmessage(message);
           notifyListeners();
         },
@@ -220,8 +220,13 @@ class WebSocketProvider with ChangeNotifier {
   }
 
   // Send a message over the WebSocket
-  void sendMove(Source source, Destination destination, Captured? captured,
-      bool isKing, int validmovesp1, int validmovesp2) {
+  Future<void> sendMove(
+      Source source,
+      Destination destination,
+      Captured? captured,
+      bool isKing,
+      int validmovesp1,
+      int validmovesp2) async {
     final data = {
       "action": "notification",
       "operation": PLAYER_MOVE,
@@ -248,7 +253,7 @@ class WebSocketProvider with ChangeNotifier {
   }
 
   // Send a message over the WebSocket
-  void changeTurn() {
+  Future<void> changeTurn() async {
     final data = {
       "action": "notification",
       "operation": CHANGE_TURN,
@@ -294,9 +299,9 @@ class WebSocketProvider with ChangeNotifier {
     var message = jsonDecode(data);
 
     if (message["message"] == "Internal server error") {
-      _isConnected = false;
+      // _isConnected = false;
 
-      _isLoading = false;
+      // _isLoading = false;
 
       errortoast("A Websocket Error Occured.");
 
@@ -320,6 +325,11 @@ class WebSocketProvider with ChangeNotifier {
       case REQUEST_START:
         _waitingOpponent = false;
         handleRequestStart(message);
+        break;
+      case GAME_OVER:
+        _waitingOpponent = false;
+        _isConnected = false;
+        successtoast("GameOver");
         break;
       case CHANGE_TURN:
         handleChangeTurn(message);

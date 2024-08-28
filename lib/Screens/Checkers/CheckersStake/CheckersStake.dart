@@ -78,29 +78,6 @@ class _CheckersStakeState extends State<CheckersStake> {
     });
   }
 
-  bool isGameOver(bool isWhiteTurn) {
-    bool whiteHasPieces =
-        board.any((row) => row.any((piece) => piece?.isWhite == true));
-    bool blackHasPieces =
-        board.any((row) => row.any((piece) => piece?.isWhite == false));
-    if (!whiteHasPieces || !blackHasPieces) {
-      return true; // One of the players has no pieces left
-    }
-
-    for (int row = 0; row < board.length; row++) {
-      for (int col = 0; col < board[row].length; col++) {
-        if (board[row][col] != null &&
-            board[row][col]!.isWhite == isWhiteTurn) {
-          var pieceValidMoves = calculatevalidMoves(row, col, board[row][col]);
-          if (pieceValidMoves.isNotEmpty) {
-            return false; // Player has valid moves
-          }
-        }
-      }
-    }
-    return true; // No valid moves, game is over
-  }
-
   void handleGameOver() {
     print("GAME OVER=================");
 
@@ -194,8 +171,8 @@ class _CheckersStakeState extends State<CheckersStake> {
     return false;
   }
 
-  void movePiece(
-      int newRow, int newCol, bool isKing, bool isWhite, bool isWhiteTurn) {
+  void movePiece(int newRow, int newCol, bool isKing, bool isWhite,
+      bool isWhiteTurn) async {
     //remove the piece jumped if any from the board
 
     // Calculate the row and column difference
@@ -217,16 +194,23 @@ class _CheckersStakeState extends State<CheckersStake> {
       var captured =
           Captured(row: capturedRow, col: capturedCol, isWhite: isWhite);
 
+      board[capturedRow][capturedCol] = null;
+
       int validMovesWhite = calculateAllValidMoves(true);
       print("Valid white moves*************** $validMovesWhite");
       int validMovesBlack = calculateAllValidMoves(false);
       print("Valid Black moves*************** $validMovesBlack");
-      Provider.of<WebSocketProvider>(context, listen: false).sendMove(source,
-          destination, captured, isKing, validMovesWhite, validMovesBlack);
+
+      await Provider.of<WebSocketProvider>(context, listen: false).sendMove(
+          source,
+          destination,
+          captured,
+          isKing,
+          validMovesWhite,
+          validMovesBlack);
 
       board[selecetedRow][selecetedCol] = null;
       board[newRow][newCol] = selecetedPiece;
-      board[capturedRow][capturedCol] = null;
 
       // Check if there are additional moves for the current player
       List<List<int>> additionalMoves =
@@ -275,13 +259,9 @@ class _CheckersStakeState extends State<CheckersStake> {
 
             int validMovesBlack = calculateAllValidMoves(false);
 
-            Provider.of<WebSocketProvider>(context, listen: false).sendMove(
-                source,
-                destination,
-                captured,
-                isKing,
-                validMovesWhite,
-                validMovesBlack);
+            await Provider.of<WebSocketProvider>(context, listen: false)
+                .sendMove(source, destination, captured, isKing,
+                    validMovesWhite, validMovesBlack);
           } else {
             // Stop capturing if you encounter your own piece
             break;
@@ -329,10 +309,14 @@ class _CheckersStakeState extends State<CheckersStake> {
 
       int validMovesBlack = calculateAllValidMoves(false);
 
-      Provider.of<WebSocketProvider>(context, listen: false).sendMove(
-          source, destination, null, isKing, validMovesWhite, validMovesBlack);
-
-      changeTurn();
+      await Provider.of<WebSocketProvider>(context, listen: false)
+          .sendMove(source, destination, null, isKing, validMovesWhite,
+              validMovesBlack)
+          .then(
+        (_) {
+          changeTurn();
+        },
+      );
     }
   }
 
@@ -346,13 +330,13 @@ class _CheckersStakeState extends State<CheckersStake> {
   }
 
 // change turns
-  void changeTurn() {
+  void changeTurn() async {
     selecetedPiece = null;
     selecetedRow = -1;
     selecetedCol = -1;
     validMoves = [];
 
-    Provider.of<WebSocketProvider>(context, listen: false).changeTurn();
+    await Provider.of<WebSocketProvider>(context, listen: false).changeTurn();
   }
 
 //calculate valid capture moves for boh normal and king piece
@@ -458,14 +442,6 @@ class _CheckersStakeState extends State<CheckersStake> {
         board = newBoard;
       });
     });
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-
-    Provider.of<WebSocketProvider>(context, listen: false)
-        .handleDisconnect(null);
   }
 
   CheckersPiece? selecetedPiece;

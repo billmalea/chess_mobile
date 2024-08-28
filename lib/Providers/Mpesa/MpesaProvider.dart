@@ -119,9 +119,6 @@ class PaymentProvider extends ChangeNotifier {
 
   Future<String?> _getAccessToken() async {
     try {
-      const url =
-          'https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials';
-
       final headers = {
         "Authorization":
             "Basic ${base64.encode(utf8.encode('$mpesaClientKey:$mpesaClientSecret'))}",
